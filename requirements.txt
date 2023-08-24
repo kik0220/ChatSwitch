@@ -1,0 +1,11 @@
+gradio
+tiktoken
+requests
+newspaper3k
+transformers
+tiktoken
+accelerate
+sentencepiece
+einops
+xformers
+protobuf==3.20.*
