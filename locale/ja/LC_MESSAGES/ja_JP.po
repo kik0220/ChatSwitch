@@ -1,0 +1,55 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: ChatSwitch\n"
+"POT-Creation-Date: 2023-08-25 08:12+0900\n"
+"PO-Revision-Date: 2023-08-25 08:12+0900\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: ja_JP\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.3.2\n"
+"X-Poedit-Basepath: ../../..\n"
+"X-Poedit-SourceCharset: UTF-8\n"
+"X-Poedit-SearchPath-0: chatswitch.py\n"
+
+#: chatswitch.py:533
+msgid "new line:Shift+Enter Send:Enter"
+msgstr "改行：Shift+Enter　送信：Enter"
+
+#: chatswitch.py:535
+msgid "new chat"
+msgstr "新しい会話"
+
+#: chatswitch.py:536
+msgid "model"
+msgstr "モデル"
+
+#: chatswitch.py:537
+msgid "system prompt"
+msgstr "システムプロンプト"
+
+#: chatswitch.py:537
+msgid "system: user: assistant: save:Enter"
+msgstr "system: user: assistant: 保存:Enter"
+
+#: chatswitch.py:538
+msgid "prompt memo"
+msgstr "プロンプトメモ"
+
+#: chatswitch.py:538
+msgid "memo holder save:Enter"
+msgstr "メモ置き場 保存:Enter"
+
+#: chatswitch.py:539
+msgid "Chat history"
+msgstr "会話の履歴"
+
+#: chatswitch.py:540
+msgid "title"
+msgstr "タイトル"
+
+#: chatswitch.py:552
+msgid "enable"
+msgstr "有効"
