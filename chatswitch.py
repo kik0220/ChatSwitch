@@ -2,6 +2,7 @@ import os
 import time
 import json
 import pickle
+import gettext
 import gradio as gr
 from newspaper import Article
 from transformers import AutoModelForCausalLM, AutoTokenizer, LlamaTokenizer, pipeline
@@ -12,6 +13,10 @@ import requests
 import base64
 from pathlib import Path
 from datetime import date
+
+lang = gettext.translation('ja_JP', localedir='locale', languages=['ja'])
+lang.install()
+_ = lang.gettext
 
 model_limit_token = {"stabilityai/japanese-stablelm-base-alpha-7b": 2048}
 
@@ -96,9 +101,9 @@ def init_chat():
     global messages_limit
     global ai_token_limit
     global encoding
-    messages = [] # 新しくリストを定義する
+    messages = []
     messages_limit = 1024 * 2
-    ai_token_limit = 200 #返答用
+    ai_token_limit = 200
     messages_limit -= ai_token_limit + 30 #バッファー
     encoding = tiktoken.get_encoding("cl100k_base")
     encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
@@ -523,14 +528,14 @@ with gr.Blocks() as demo:
     with gr.Row():
         with gr.Column(scale=5, min_width=600):
             chatbot = gr.Chatbot(load_last_conversation, elem_id="chatbot",height=800)
-            user_prompt = gr.Textbox(placeholder="改行：Shift+Enter　送信：Enter",show_label=False,container=True,lines=1,autofocus=True)
+            user_prompt = gr.Textbox(placeholder=_("new line:Shift+Enter Send:Enter"),show_label=False,container=True,lines=1,autofocus=True)
         with gr.Column(scale=2):
-            new_button = gr.ClearButton(value="新しい会話",components=[chatbot])
-            model_txt = gr.Dropdown(label="モデル",value=model_init,container=True,choices=llm_model_list)
-            system_txt = gr.Textbox(label="システムプロンプト",placeholder="system: user: assistant: 保存:Enter",value=get_memory_variable("last_system_prompt"),container=True,lines=1)
-            prompt_memo = gr.Textbox(label="プロンプトメモ",placeholder="メモ置き場 保存:Enter",value=get_memory_variable("prompt_memo"),container=True,lines=1)
-            with gr.Tab("会話の履歴"):
-                list_history = gr.List(load_history,headers=["タイトル","DEL","id"],datatype="str",col_count=(3, "fixed"),max_rows=10,interactive=False)
+            new_button = gr.ClearButton(value=_("new chat"),components=[chatbot])
+            model_txt = gr.Dropdown(label=_("model"),value=model_init,container=True,choices=llm_model_list)
+            system_txt = gr.Textbox(label=_("system prompt"),placeholder=_("system: user: assistant: save:Enter"),value=get_memory_variable("last_system_prompt"),container=True,lines=1)
+            prompt_memo = gr.Textbox(label=_("prompt memo"),placeholder=_("memo holder save:Enter"),value=get_memory_variable("prompt_memo"),container=True,lines=1)
+            with gr.Tab(_("Chat history")):
+                list_history = gr.List(load_history,headers=[_("title"),"DEL","id"],datatype="str",col_count=(3, "fixed"),max_rows=10,interactive=False)
             with gr.Tab("AI"):
                 with gr.Row():
                     ai_temperature = gr.Textbox(label="temperature",value=temperature_init(),scale=1)
@@ -542,7 +547,7 @@ with gr.Blocks() as demo:
                     ai_no_repeat_ngram_size = gr.Textbox(label="no_repeat_ngram_size",value=no_repeat_ngram_size_init(),scale=1)
                     ai_min_length = gr.Textbox(label="min_length",value=min_length_init(),scale=1)
             with gr.Tab("Stable Diffusion"):
-                sd_enable = gr.Checkbox(label="有効",value=False)
+                sd_enable = gr.Checkbox(label=_("enable"),value=False)
                 sd_host = gr.Textbox(label="Host",value=sd_host_init())
                 sd_prompt = gr.Textbox(label="prompt",value=sd_prompt_init(),lines=3)
                 sd_negative = gr.Textbox(label="negative prompt",value=sd_negative_init(),lines=2)
