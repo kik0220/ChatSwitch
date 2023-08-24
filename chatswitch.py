@@ -190,6 +190,8 @@ memory_path = 'memory.pkl'
 if os.path.exists(memory_path):
     with open(memory_path, 'rb') as file:
         memory = pickle.load(file)
+    with open('memory.json', 'w', encoding='utf-8') as file:
+        json.dump(memory, file, ensure_ascii=False, indent=4)
 
 init_chat()
 conversations = {}
@@ -568,4 +570,4 @@ with gr.Blocks() as demo:
     ai_min_length.submit(lambda x: memory.update({"last_ai_min_length": x}),ai_min_length).then(save_memory)
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(server_port=7861,server_name="0.0.0.0")
