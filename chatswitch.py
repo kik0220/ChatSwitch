@@ -286,6 +286,11 @@ def sd_host_init():
         return memory["last_sd_host"]
     return ""
     
+def sd_chekpoint_init():
+    if "last_sd_chekpoint" in memory:
+        return memory["last_sd_chekpoint"]
+    return ""
+    
 def sd_prompt_init():
     if "last_sd_prompt" in memory:
         return memory["last_sd_prompt"]
@@ -296,7 +301,7 @@ def sd_negative_init():
         return memory["last_sd_negative"]
     return ""
     
-def get_SD_pictures(history,sd_enable,sd_host,sd_prompt,sd_negative):
+def get_SD_pictures(history,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint):
     if not sd_enable:
         return history
     params = {
@@ -315,19 +320,16 @@ def get_SD_pictures(history,sd_enable,sd_host,sd_prompt,sd_negative):
         'sampler_name': 'Euler a',
         'steps': 20,
         'cfg_scale': 7,
-        'sd_checkpoint': 'abyssorangemix3AOM3_aom3a1b.safetensors',
+        'sd_checkpoint': sd_chekpoint,
         'checkpoint_list': [" "]
     }
-
     payload = {
         "sd_model_checkpoint": params["sd_checkpoint"]
     }
-
     try:
         requests.post(url=f'{params["address"]}/sdapi/v1/options', json=payload)
     except:
         pass
-
     payload = {
         "prompt": params['prompt_prefix'],
         "seed": params['seed'],
@@ -344,23 +346,18 @@ def get_SD_pictures(history,sd_enable,sd_host,sd_prompt,sd_negative):
         "override_settings_restore_afterwards": True,
         "negative_prompt": params['negative_prompt']
     }
-
     response = requests.post(url=f'{params["address"]}/sdapi/v1/txt2img', json=payload)
     response.raise_for_status()
     r = response.json()
-
     for img_str in r['images']:
         if params['save_img']:
             img_data = base64.b64decode(img_str)
-
-            variadic = f'{date.today().strftime("%Y_%m_%d")}/{int(time.time())}'
-            output_file = Path(f'outputs/{variadic}.png')
+            save_path = f'{date.today().strftime("%Y_%m_%d")}/{int(time.time())}'
+            output_file = Path(f'outputs/{save_path}.png')
             output_file.parent.mkdir(parents=True, exist_ok=True)
-
             with open(output_file.as_posix(), 'wb') as f:
                 f.write(img_data)
-    
-    history = history + [((f"outputs/{variadic}.png",), None)]
+    history = history + [((f"outputs/{save_path}.png",), None)]
 
     return history
     
@@ -551,10 +548,11 @@ with gr.Blocks() as demo:
             with gr.Tab("Stable Diffusion"):
                 sd_enable = gr.Checkbox(label=_("enable"),value=False)
                 sd_host = gr.Textbox(label="Host",value=sd_host_init())
+                sd_chekpoint = gr.Textbox(label="checkpoint",value=sd_chekpoint_init())
                 sd_prompt = gr.Textbox(label="prompt",value=sd_prompt_init(),lines=3)
                 sd_negative = gr.Textbox(label="negative prompt",value=sd_negative_init(),lines=2)
 
-    txt_msg = user_prompt.submit(add_text, [chatbot, user_prompt, system_txt], [chatbot, user_prompt, system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length], outputs=chatbot).then(add_history, list_history, list_history).then(get_SD_pictures, inputs=[chatbot,sd_enable,sd_host,sd_prompt,sd_negative], outputs=chatbot)
+    txt_msg = user_prompt.submit(add_text, [chatbot, user_prompt, system_txt], [chatbot, user_prompt, system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length], outputs=chatbot).then(add_history, list_history, list_history).then(get_SD_pictures, inputs=[chatbot,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint], outputs=chatbot)
     txt_msg.then(lambda: gr.update(interactive=True), None, [user_prompt])
     new_button.click(new_chat).then(model_load,model_txt)
     model_txt.change(lambda x: memory.update({"last_model": x}),inputs=model_txt).then(save_memory).then(model_load,model_txt,model_txt)
@@ -562,7 +560,8 @@ with gr.Blocks() as demo:
     list_history.select(fn=load_conversation,inputs=[list_history,chatbot],outputs=[list_history,chatbot])
     system_txt.submit(lambda x: memory.update({"last_system_prompt": x}),system_txt).then(save_memory)
     sd_enable.change(lambda x: memory.update({"last_sd_enable": x}),sd_enable).then(save_memory)
-    sd_host.change(lambda x: memory.update({"last_sd_host": x}),sd_host).then(save_memory)
+    sd_host.submit(lambda x: memory.update({"last_sd_host": x}),sd_host).then(save_memory)
+    sd_chekpoint.submit(lambda x: memory.update({"last_sd_chekpoint": x}),sd_chekpoint).then(save_memory)
     sd_prompt.submit(lambda x: memory.update({"last_sd_prompt": x}),sd_prompt).then(save_memory)
     sd_negative.submit(lambda x: memory.update({"last_sd_negative": x}),sd_negative).then(save_memory)
     ai_temperature.submit(lambda x: memory.update({"last_ai_temperature": x}),ai_temperature).then(save_memory)
