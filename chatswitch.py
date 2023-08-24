@@ -15,11 +15,12 @@ from datetime import date
 
 model_limit_token = {"stabilityai/japanese-stablelm-base-alpha-7b": 2048}
 
-llm_model_list = [ ## "matsuo-lab/weblab-10b-instruction-sft"
+llm_model_list = [
     "stabilityai/japanese-stablelm-base-alpha-7b",
     "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2",
     "cyberagent/open-calm-7b",
-    "line-corporation/japanese-large-lm-1.7b-instruction-sft"
+    "line-corporation/japanese-large-lm-1.7b-instruction-sft",
+    "matsuo-lab/weblab-10b-instruction-sft",
     ]
 
 talk_paramaters = {
@@ -425,6 +426,11 @@ def model_load(model_txt):
     elif model_txt == "line-corporation/japanese-large-lm-1.7b-instruction-sft":
         tokenizer = AutoTokenizer.from_pretrained(model_txt, use_fast=False)
         model = AutoModelForCausalLM.from_pretrained(model_txt)
+    elif model_txt == "matsuo-lab/weblab-10b-instruction-sft":
+        tokenizer = AutoTokenizer.from_pretrained("matsuo-lab/weblab-10b-instruction-sft")
+        model = AutoModelForCausalLM.from_pretrained("matsuo-lab/weblab-10b-instruction-sft")
+        if torch.cuda.is_available():
+            model = model.to("cuda")
 
     return model_txt
 
@@ -517,6 +523,25 @@ def genarate_talk(messages):
             num_return_sequences = 1,
         )[0]['generated_text']
         output = re.sub('システム', talk_paramaters["assistant_role_name"], output)
+    elif model_txt == "matsuo-lab/weblab-10b-instruction-sft":
+        # recomend system = "以下は、タスクを説明する指示です。要求を適切に満たす応答を書きなさい。"
+        talk = re.sub(talk_paramaters["user_role_name"], '### 指示', talk)
+        talk = re.sub(talk_paramaters["assistant_role_name"], '### 応答', talk)
+        token_ids = tokenizer.encode(talk, add_special_tokens=False, return_tensors="pt")
+        with torch.no_grad():
+            output_ids = model.generate(
+                token_ids.to(model.device),
+                max_new_tokens=ai_token_limit,
+                do_sample=True,
+                temperature=talk_paramaters["temperature"],
+                top_p=talk_paramaters["top_k"],
+                pad_token_id=tokenizer.pad_token_id,
+                bos_token_id=tokenizer.bos_token_id,
+                eos_token_id=tokenizer.eos_token_id
+            )
+        output = tokenizer.decode(output_ids.tolist()[0])
+        output = re.sub('### 応答', talk_paramaters["assistant_role_name"], output)
+
     output = re.sub('(.|\n)*' + talk_paramaters["assistant_role_name"] + ': (.*?)', '\\2', output)
 
     return output
