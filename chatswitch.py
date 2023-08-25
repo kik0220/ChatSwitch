@@ -12,9 +12,15 @@ import re
 import requests
 import base64
 from pathlib import Path
-from datetime import date
+import locale
 
-lang = gettext.translation('ja_JP', localedir='locale', languages=['ja'])
+# システムのロケール設定を取得
+default_locale = locale.getdefaultlocale()[0]
+if default_locale == 'ja_JP':
+    lang = gettext.translation('chatswitch',localedir='locale',languages=[default_locale])
+else:
+    lang = gettext.NullTranslations()
+    
 lang.install()
 _ = lang.gettext
 
