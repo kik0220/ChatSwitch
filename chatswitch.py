@@ -14,16 +14,6 @@ import base64
 from pathlib import Path
 import locale
 
-# システムのロケール設定を取得
-default_locale = locale.getdefaultlocale()[0]
-if default_locale == 'ja_JP':
-    lang = gettext.translation('chatswitch',localedir='locale',languages=[default_locale])
-else:
-    lang = gettext.NullTranslations()
-    
-lang.install()
-_ = lang.gettext
-
 model_limit_token = {"stabilityai/japanese-stablelm-base-alpha-7b": 2048}
 
 llm_model_list = [ ## "matsuo-lab/weblab-10b-instruction-sft"
@@ -110,7 +100,7 @@ def init_chat():
     messages = []
     messages_limit = 1024 * 2
     ai_token_limit = 200
-    messages_limit -= ai_token_limit + 30 #バッファー
+    messages_limit -= ai_token_limit + 30
     encoding = tiktoken.get_encoding("cl100k_base")
     encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
 
@@ -207,6 +197,19 @@ if os.path.exists(memory_path):
 init_chat()
 conversations = {}
 current_conversation = {}
+if "last_language" in memory:
+    if memory["last_language"] == '日本語':
+        default_locale = 'ja_JP'
+    else:
+        default_locale = 'en_US'
+else:
+    default_locale = locale.getdefaultlocale()[0]
+if default_locale == 'ja_JP':
+    lang = gettext.translation('chatswitch',localedir='locale',languages=[default_locale])
+else:
+    lang = gettext.NullTranslations()
+lang.install()
+_ = lang.gettext
 
 load_conversations()
 
@@ -366,7 +369,17 @@ def get_SD_pictures(history,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint
     history = history + [((f"outputs/{save_path}.png",), None)]
 
     return history
-    
+
+def language_change(language):
+    if language == "日本語":
+        lang = gettext.translation('chatswitch',localedir='locale',languages=["ja_JP"])
+    else:
+        lang = gettext.NullTranslations()
+    lang.install()
+def language_init():
+    if "last_language" in memory:
+        return memory["last_language"]
+    return ""
 def temperature_init():
     if "temperature" in memory:
         return memory["temperature"]
@@ -557,6 +570,8 @@ with gr.Blocks() as demo:
                 sd_chekpoint = gr.Textbox(label="checkpoint",value=sd_chekpoint_init())
                 sd_prompt = gr.Textbox(label="prompt",value=sd_prompt_init(),lines=3)
                 sd_negative = gr.Textbox(label="negative prompt",value=sd_negative_init(),lines=2)
+            with gr.Tab("option"):
+                language = gr.Dropdown(label="language *need python reboot",value=language_init,container=True,choices=["Englich","日本語"])
 
     txt_msg = user_prompt.submit(add_text, [chatbot, user_prompt, system_txt], [chatbot, user_prompt, system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length], outputs=chatbot).then(add_history, list_history, list_history).then(get_SD_pictures, inputs=[chatbot,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint], outputs=chatbot)
     txt_msg.then(lambda: gr.update(interactive=True), None, [user_prompt])
@@ -578,6 +593,7 @@ with gr.Blocks() as demo:
     ai_encoder_repetition_penalty.submit(lambda x: memory.update({"last_ai_encoder_repetition_penalty": x}),ai_encoder_repetition_penalty).then(save_memory)
     ai_no_repeat_ngram_size.submit(lambda x: memory.update({"last_ai_no_repeat_ngram_size": x}),ai_no_repeat_ngram_size).then(save_memory)
     ai_min_length.submit(lambda x: memory.update({"last_ai_min_length": x}),ai_min_length).then(save_memory)
+    language.change(lambda x: memory.update({"last_language": x}),inputs=language).then(save_memory).then(language_change,language)
 
 if __name__ == "__main__":
     demo.launch(server_port=7861,server_name="0.0.0.0")
