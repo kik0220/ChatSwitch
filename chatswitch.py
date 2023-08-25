@@ -555,6 +555,15 @@ def genarate_talk(messages):
 
     return output
 
+def restart():
+    import sys
+    print("argv was",sys.argv)
+    print("sys.executable was", sys.executable)
+    print("restart now")
+
+    import os
+    os.execv(sys.executable, ['python'] + sys.argv)
+
 with gr.Blocks(title="ChatSwitch") as demo:
     with gr.Row():
         with gr.Column(scale=5, min_width=600):
@@ -606,7 +615,7 @@ with gr.Blocks(title="ChatSwitch") as demo:
     ai_encoder_repetition_penalty.submit(lambda x: memory.update({"last_ai_encoder_repetition_penalty": x}),ai_encoder_repetition_penalty).then(save_memory)
     ai_no_repeat_ngram_size.submit(lambda x: memory.update({"last_ai_no_repeat_ngram_size": x}),ai_no_repeat_ngram_size).then(save_memory)
     ai_min_length.submit(lambda x: memory.update({"last_ai_min_length": x}),ai_min_length).then(save_memory)
-    language.change(lambda x: memory.update({"last_language": x}),inputs=language).then(save_memory).then(language_change,language)
+    language.change(lambda x: memory.update({"last_language": x}),inputs=language).then(save_memory).then(language_change,language).then(restart)
 
 if __name__ == "__main__":
     config_json = {}
