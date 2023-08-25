@@ -1,0 +1,5 @@
+{
+    "server_port": 7860,
+    "server_name": "127.0.0.1",
+    "inbrowser": false
+}
