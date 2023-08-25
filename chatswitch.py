@@ -175,6 +175,8 @@ def save_memory():
     # データを保存
     with open('memory.pkl', 'wb') as file:
         pickle.dump(memory, file)
+    with open('memory.json', 'w', encoding='utf-8') as file:
+        json.dump(memory, file, ensure_ascii=False, indent=4)
 
 def load_conversations():
     global conversations
