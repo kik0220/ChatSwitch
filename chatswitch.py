@@ -14,6 +14,16 @@ import base64
 from pathlib import Path
 import locale
 
+# システムのロケール設定を取得
+default_locale = locale.getdefaultlocale()[0]
+if default_locale == 'ja_JP':
+    lang = gettext.translation('chatswitch',localedir='locale',languages=[default_locale])
+else:
+    lang = gettext.NullTranslations()
+    
+lang.install()
+_ = lang.gettext
+
 model_limit_token = {"stabilityai/japanese-stablelm-base-alpha-7b": 2048}
 
 llm_model_list = [ ## "matsuo-lab/weblab-10b-instruction-sft"

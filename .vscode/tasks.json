@@ -1,0 +1,25 @@
+{
+	// See https://go.microsoft.com/fwlink/?LinkId=733558
+	// for the documentation about the tasks.json format
+	"version": "2.0.0",
+	"tasks": [
+    {
+      "label": "Build Docker Image",
+      "type": "shell",
+      "command": "docker build -t chatswitch .",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Docker run :7860",
+      "type": "shell",
+      "command": "docker run -d -p 7860:7860 chatswitch",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+	]
+}
