@@ -1,4 +1,5 @@
 import os
+import datetime
 import time
 import json
 import pickle
@@ -371,7 +372,7 @@ def get_SD_pictures(history,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint
     for img_str in r['images']:
         if params['save_img']:
             img_data = base64.b64decode(img_str)
-            save_path = f'{date.today().strftime("%Y_%m_%d")}/{int(time.time())}'
+            save_path = f'{datetime.date.today().strftime("%Y_%m_%d")}/{int(time.time())}'
             output_file = Path(f'outputs/{save_path}.png')
             output_file.parent.mkdir(parents=True, exist_ok=True)
             with open(output_file.as_posix(), 'wb') as f:
@@ -576,7 +577,7 @@ with gr.Blocks(title="ChatSwitch") as demo:
                     ai_min_length = gr.Textbox(label="min_length",value=min_length_init(),scale=1)
             with gr.Tab("Stable Diffusion"):
                 sd_enable = gr.Checkbox(label=_("enable"),value=False)
-                sd_host = gr.Textbox(label="Host",value=sd_host_init())
+                sd_host = gr.Textbox(label="Host",value=sd_host_init(),placeholder="http://127.0.0.1:7860")
                 sd_chekpoint = gr.Textbox(label="checkpoint",value=sd_chekpoint_init())
                 sd_prompt = gr.Textbox(label="prompt",value=sd_prompt_init(),lines=3)
                 sd_negative = gr.Textbox(label="negative prompt",value=sd_negative_init(),lines=2)
