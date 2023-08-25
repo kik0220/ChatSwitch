@@ -4,3 +4,4 @@ memory.*
 test*
 venv
 outputs
+user_config.json

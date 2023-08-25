@@ -552,7 +552,7 @@ def genarate_talk(messages):
 
     return output
 
-with gr.Blocks() as demo:
+with gr.Blocks(title="ChatSwitch") as demo:
     with gr.Row():
         with gr.Column(scale=5, min_width=600):
             chatbot = gr.Chatbot(load_last_conversation, elem_id="chatbot",height=800)
@@ -606,4 +606,23 @@ with gr.Blocks() as demo:
     language.change(lambda x: memory.update({"last_language": x}),inputs=language).then(save_memory).then(language_change,language)
 
 if __name__ == "__main__":
-    demo.launch()
+    config_json = {}
+    script_dir = os.getcwd()
+    user_config_path = os.path.join(script_dir, "user_config.json")
+    if os.path.exists(user_config_path):
+        with open(user_config_path, 'r', encoding='utf-8') as file:
+            config_json = json.load(file)
+
+    if "server_port" in config_json:
+        config_server_port = config_json["server_port"]
+    else:
+        config_server_port = None
+    if "server_name" in config_json:
+        config_server_name = config_json["server_name"]
+    else:
+        config_server_name = None
+    if "inbrowser" in config_json:
+        config_inbrowser = config_json["inbrowser"]
+    else:
+        config_inbrowser = False
+    demo.launch(server_port=config_server_port,server_name=config_server_name, inbrowser=config_inbrowser)
