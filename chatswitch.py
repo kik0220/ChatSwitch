@@ -21,7 +21,15 @@ if default_locale == 'ja_JP':
     lang = gettext.translation('chatswitch',localedir='locale',languages=[default_locale])
 else:
     lang = gettext.NullTranslations()
-    
+
+# user_configを取得
+config_json = {}
+script_dir = os.getcwd()
+user_config_path = os.path.join(script_dir, "user_config.json")
+if os.path.exists(user_config_path):
+    with open(user_config_path, 'r', encoding='utf-8') as file:
+        config_json = json.load(file)
+
 lang.install()
 _ = lang.gettext
 
@@ -207,8 +215,10 @@ memory_path = 'memory.pkl'
 if os.path.exists(memory_path):
     with open(memory_path, 'rb') as file:
         memory = pickle.load(file)
-    with open('memory.json', 'w', encoding='utf-8') as file:
-        json.dump(memory, file, ensure_ascii=False, indent=4)
+    if "debug_mode" in config_json:
+        if config_json["debug_mode"]:
+            with open('memory.json', 'w', encoding='utf-8') as file:
+                json.dump(memory, file, ensure_ascii=False, indent=4)
 
 init_chat()
 conversations = {}
@@ -664,13 +674,6 @@ with gr.Blocks(title="ChatSwitch") as demo:
     language.change(lambda x: memory.update({"last_language": x}),inputs=language).then(save_memory).then(language_change,language).then(restart)
 
 if __name__ == "__main__":
-    config_json = {}
-    script_dir = os.getcwd()
-    user_config_path = os.path.join(script_dir, "user_config.json")
-    if os.path.exists(user_config_path):
-        with open(user_config_path, 'r', encoding='utf-8') as file:
-            config_json = json.load(file)
-
     if "server_port" in config_json:
         config_server_port = config_json["server_port"]
     else:
