@@ -13,6 +13,24 @@
       }
     },
     {
+      "label": "Renew Docker Image",
+      "type": "shell",
+      "command": "docker build -t kik0220/chatswitch:latest .",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Push Docker Image",
+      "type": "shell",
+      "command": "docker push kik0220/chatswitch:latest",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
       "label": "Docker run :7860",
       "type": "shell",
       "command": "docker run -d -p 7860:7860 chatswitch",

@@ -64,6 +64,8 @@ Feel free to explore and enjoy chatting with various Language Models!
 
 This project is licensed under the MIT License. You are free to use, modify, distribute, and sell it under the terms of the license. For more details, see the [LICENSE](LICENSE) file in the project repository.
 
-## Acknowledgments
+## Acknowledgments and Credits
 
 This project uses [Gradio](https://gradio.app/), an open-source library for creating user interfaces. Please refer to Gradio's [license](https://github.com/gradio-app/gradio/blob/master/LICENSE) for terms and conditions.
+
+This project was deeply inspired by [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui/). Not only has the concept been a major influence on our work, but we have also adapted some of its code. We are immensely grateful for the innovative ideas and implementation details provided in their repository.
