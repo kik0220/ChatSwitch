@@ -686,4 +686,4 @@ if __name__ == "__main__":
         config_inbrowser = config_json["inbrowser"]
     else:
         config_inbrowser = False
-    demo.launch(server_port=config_server_port,server_name=config_server_name, inbrowser=config_inbrowser)
+    demo.launch(share=False,show_api=False,server_port=config_server_port,server_name=config_server_name,inbrowser=config_inbrowser)
