@@ -21,18 +21,26 @@ if default_locale == 'ja_JP':
     lang = gettext.translation('chatswitch',localedir='locale',languages=[default_locale])
 else:
     lang = gettext.NullTranslations()
-    
+
+# user_configを取得
+config_json = {}
+script_dir = os.getcwd()
+user_config_path = os.path.join(script_dir, "user_config.json")
+if os.path.exists(user_config_path):
+    with open(user_config_path, 'r', encoding='utf-8') as file:
+        config_json = json.load(file)
+
 lang.install()
 _ = lang.gettext
 
 model_limit_token = {"stabilityai/japanese-stablelm-base-alpha-7b": 2048}
 
 llm_model_list = [
+    "matsuo-lab/weblab-10b-instruction-sft",
     "stabilityai/japanese-stablelm-base-alpha-7b",
     "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2",
-    "cyberagent/open-calm-7b",
     "line-corporation/japanese-large-lm-1.7b-instruction-sft",
-    "matsuo-lab/weblab-10b-instruction-sft",
+    "cyberagent/open-calm-7b",
     ]
 
 sd_subject = ""
@@ -189,6 +197,8 @@ def save_memory():
     # データを保存
     with open('memory.pkl', 'wb') as file:
         pickle.dump(memory, file)
+    with open('memory.json', 'w', encoding='utf-8') as file:
+        json.dump(memory, file, ensure_ascii=False, indent=4)
 
 def load_conversations():
     global conversations
@@ -202,11 +212,17 @@ def load_conversations():
 memory = {}
 memory_path = 'memory.pkl'
 
+def is_debug_mode():
+    if "debug_mode" in config_json:
+        return config_json["debug_mode"]
+    return False
+
 if os.path.exists(memory_path):
     with open(memory_path, 'rb') as file:
         memory = pickle.load(file)
-    with open('memory.json', 'w', encoding='utf-8') as file:
-        json.dump(memory, file, ensure_ascii=False, indent=4)
+    if is_debug_mode:
+        with open('memory.json', 'w', encoding='utf-8') as file:
+            json.dump(memory, file, ensure_ascii=False, indent=4)
 
 init_chat()
 conversations = {}
@@ -445,7 +461,6 @@ def model_save(model_txt):
     memory["last_model"] = model_txt
     save_memory()
 
-model_loaded = False
 def model_load(model_txt):
     global model
     global tokenizer
@@ -460,8 +475,10 @@ def model_load(model_txt):
         if torch.cuda.is_available():
             model = model.to("cuda")
     elif model_txt == "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2":
-        tokenizer = AutoTokenizer.from_pretrained(model_txt, use_fast=False)
+        tokenizer = AutoTokenizer.from_pretrained(model_txt,use_fast=False,legacy=True)
         model = AutoModelForCausalLM.from_pretrained(model_txt)
+        model.half()
+        model.eval()
         if torch.cuda.is_available():
             model = model.to("cuda")
     elif model_txt == "cyberagent/open-calm-7b":
@@ -470,14 +487,17 @@ def model_load(model_txt):
     elif model_txt == "line-corporation/japanese-large-lm-1.7b-instruction-sft":
         tokenizer = AutoTokenizer.from_pretrained(model_txt, use_fast=False)
         model = AutoModelForCausalLM.from_pretrained(model_txt)
-    elif model_txt == "matsuo-lab/weblab-10b-instruction-sft":
-        tokenizer = AutoTokenizer.from_pretrained("matsuo-lab/weblab-10b-instruction-sft")
-        model = AutoModelForCausalLM.from_pretrained("matsuo-lab/weblab-10b-instruction-sft")
         model.half()
         model.eval()
         if torch.cuda.is_available():
             model = model.to("cuda")
-
+    elif model_txt == "matsuo-lab/weblab-10b-instruction-sft":
+        tokenizer = AutoTokenizer.from_pretrained(model_txt)
+        model = AutoModelForCausalLM.from_pretrained(model_txt)
+        model.half()
+        model.eval()
+        if torch.cuda.is_available():
+            model = model.to("cuda")
     return model_txt
 
 def genarate_talk(messages):
@@ -505,13 +525,17 @@ def genarate_talk(messages):
         input_ids = tokenizer.encode(talk,add_special_tokens=False,return_tensors="pt")
         tokens = model.generate(
             input_ids.to(device=model.device),
-            max_new_tokens=ai_token_limit,
-            temperature=talk_paramaters["temperature"],
-            top_p=talk_paramaters["top_p"],
+            max_new_tokens=talk_paramaters["max_new_tokens"],
+            do_sample=True,
+            top_p=talk_paramaters["top_k"],
+            top_k=talk_paramaters["top_k"],
+            typical_p=talk_paramaters["typical_p"],
+            epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
+            eta_cutoff=talk_paramaters["eta_cutoff"],
             repetition_penalty=talk_paramaters["repetition_penalty"],
             encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
             no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
-            do_sample=True,
+            min_length=talk_paramaters["min_length"],
         )
         output = tokenizer.decode(tokens[0], skip_special_tokens=True)
         output = output.replace(talk, '')
@@ -524,22 +548,30 @@ def genarate_talk(messages):
             output_ids = model.generate(
                 token_ids.to(model.device),
                 do_sample=True,
-                max_new_tokens=ai_token_limit,
+                max_new_tokens=talk_paramaters["max_new_tokens"],
                 temperature=talk_paramaters["temperature"],
+                top_p=talk_paramaters["top_k"],
+                top_k=talk_paramaters["top_k"],
+                typical_p=talk_paramaters["typical_p"],
+                epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
+                eta_cutoff=talk_paramaters["eta_cutoff"],
                 repetition_penalty=talk_paramaters["repetition_penalty"],
+                encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
+                no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
+                min_length=talk_paramaters["min_length"],
                 pad_token_id=tokenizer.pad_token_id,
                 bos_token_id=tokenizer.bos_token_id,
                 eos_token_id=tokenizer.eos_token_id
             )
         output = tokenizer.decode(output_ids.tolist()[0][token_ids.size(1):])
         output = output.replace("<NL>", "\n")
-    elif model_txt == "cyberagent/open-calm-7b": ## "matsuo-lab/weblab-10b-instruction-sft" 
+    elif model_txt == "cyberagent/open-calm-7b":
         inputs = tokenizer(talk, return_tensors="pt").to(model.device)
         with torch.no_grad():
             tokens = model.generate(
                 **inputs,
                 do_sample=True,
-                max_new_tokens=ai_token_limit,
+                max_new_tokens=talk_paramaters["max_new_tokens"],
                 temperature=talk_paramaters["temperature"],
                 top_p=talk_paramaters["top_k"],
                 top_k=talk_paramaters["top_k"],
@@ -559,12 +591,17 @@ def genarate_talk(messages):
         talk = re.sub(talk_paramaters["assistant_role_name"], 'システム', talk)
         output = generator(
             talk,
-            max_length = ai_token_limit,
+            max_length = talk_paramaters["max_new_tokens"],
             do_sample = True,
-            temperature=talk_paramaters["temperature"],
             top_p=talk_paramaters["top_k"],
             top_k=talk_paramaters["top_k"],
+            typical_p=talk_paramaters["typical_p"],
+            epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
+            eta_cutoff=talk_paramaters["eta_cutoff"],
             repetition_penalty=talk_paramaters["repetition_penalty"],
+            encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
+            no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
+            min_length=talk_paramaters["min_length"],
             num_beams = 1,
             pad_token_id = tokenizer.pad_token_id,
             num_return_sequences = 1,
@@ -578,13 +615,17 @@ def genarate_talk(messages):
         with torch.no_grad():
             output_ids = model.generate(
                 token_ids.to(model.device),
-                max_new_tokens=ai_token_limit,
+                max_new_tokens=talk_paramaters["max_new_tokens"],
                 do_sample=True,
-                temperature=talk_paramaters["temperature"],
                 top_p=talk_paramaters["top_k"],
-                pad_token_id=tokenizer.pad_token_id,
-                bos_token_id=tokenizer.bos_token_id
-                # eos_token_id=tokenizer.eos_token_id
+                top_k=talk_paramaters["top_k"],
+                typical_p=talk_paramaters["typical_p"],
+                epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
+                eta_cutoff=talk_paramaters["eta_cutoff"],
+                repetition_penalty=talk_paramaters["repetition_penalty"],
+                encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
+                no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
+                min_length=talk_paramaters["min_length"],
             )
         output = tokenizer.decode(output_ids.tolist()[0])
         output = re.sub('### 応答', talk_paramaters["assistant_role_name"], output)
@@ -617,8 +658,8 @@ with gr.Blocks(title="ChatSwitch") as demo:
                 list_history = gr.List(load_history,headers=[_("title"),"DEL","id"],datatype="str",col_count=(3, "fixed"),max_rows=10,interactive=False)
             with gr.Tab("AI"):
                 with gr.Row():
-                    ai_min_length = gr.Slider(label="min_length",value=min_length_init(),scale=1,minimum=0,maximum=1,step=1)
-                    ai_max_new_tokens = gr.Slider(label="max_new_tokens",value=max_new_tokens_init(),scale=1,minimum=ai_token_limit,maximum=1,step=1)
+                    ai_min_length = gr.Slider(label="min_length",value=min_length_init(),scale=1,minimum=0,maximum=ai_token_limit,step=1)
+                    ai_max_new_tokens = gr.Slider(label="max_new_tokens",value=max_new_tokens_init(),scale=1,minimum=1,maximum=ai_token_limit,step=1)
                     ai_temperature = gr.Slider(label="temperature",value=temperature_init(),scale=1,minimum=0.01,maximum=1.99,step=0.01)
                     ai_top_p = gr.Slider(label="top_p",value=top_p_init(),scale=1,minimum=0,maximum=1,step=0.01)
                     ai_top_k = gr.Slider(label="top_k",value=top_k_init(),scale=1,minimum=0,maximum=200,step=1)
@@ -662,13 +703,6 @@ with gr.Blocks(title="ChatSwitch") as demo:
     language.change(lambda x: memory.update({"last_language": x}),inputs=language).then(save_memory).then(language_change,language).then(restart)
 
 if __name__ == "__main__":
-    config_json = {}
-    script_dir = os.getcwd()
-    user_config_path = os.path.join(script_dir, "user_config.json")
-    if os.path.exists(user_config_path):
-        with open(user_config_path, 'r', encoding='utf-8') as file:
-            config_json = json.load(file)
-
     if "server_port" in config_json:
         config_server_port = config_json["server_port"]
     else:
@@ -681,4 +715,4 @@ if __name__ == "__main__":
         config_inbrowser = config_json["inbrowser"]
     else:
         config_inbrowser = False
-    demo.launch(server_port=config_server_port,server_name=config_server_name, inbrowser=config_inbrowser)
+    demo.launch(share=False,show_api=False,server_port=config_server_port,server_name=config_server_name,inbrowser=config_inbrowser)
