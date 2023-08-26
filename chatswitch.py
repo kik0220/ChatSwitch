@@ -35,23 +35,6 @@ llm_model_list = [
     "matsuo-lab/weblab-10b-instruction-sft",
     ]
 
-talk_paramaters = {
-    'system_role_name': 'system',
-    'user_role_name': 'user',
-    'assistant_role_name': 'assistant',
-    'model_txt': '',
-    'temperature': 0.7,
-    'top_p': 0.37,
-    'top_k': 100,
-    'typical_p': 1.1,
-    'repetition_penalty': 1.23,
-    'encoder_repetition_penalty': 1,
-    'no_repeat_ngram_size': 0,
-    'epsilon_cutoff': 3,
-    'eta_cutoff': 3,
-    'min_length': 0,
-    }
-
 sd_subject = ""
 
 def count_tokens(text, encoding: tiktoken.Encoding):
@@ -109,12 +92,31 @@ def init_chat():
     global messages_limit
     global ai_token_limit
     global encoding
+    global talk_paramaters
     messages = []
     messages_limit = 1024 * 2
     ai_token_limit = 200
     messages_limit -= ai_token_limit + 30
     encoding = tiktoken.get_encoding("cl100k_base")
     encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+    talk_paramaters = {
+        'system_role_name': 'system',
+        'user_role_name': 'user',
+        'assistant_role_name': 'assistant',
+        'model_txt': '',
+        'temperature': 0.7,
+        'top_p': 0.37,
+        'top_k': 100,
+        'typical_p': 1.1,
+        'repetition_penalty': 1.23,
+        'encoder_repetition_penalty': 1,
+        'no_repeat_ngram_size': 0,
+        'epsilon_cutoff': 0,
+        'eta_cutoff': 0,
+        'max_new_tokens': ai_token_limit,
+        'min_length': 0,
+        'seed': -1,
+        }
 
 def load_conversation(data: gr.SelectData, list_history, chatbot) -> int:
     global conversations
@@ -230,18 +232,20 @@ def add_text(history, text, system_txt):
     current_conversation["system_iput"] = system_txt
     return history, gr.update(value="", interactive=False), system_txt
 
-def chat(history,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length):
+def chat(history,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed):
     global messages
     global talk_paramaters
 
-    talk_paramaters["temperature"] = float(ai_temperature)
-    talk_paramaters["top_p"] = float(ai_top_p)
-    talk_paramaters["top_k"] = int(ai_top_k)
-    talk_paramaters["typical_p"] = float(ai_typical_p)
-    talk_paramaters["repetition_penalty"] = float(ai_repetition_penalty)
-    talk_paramaters["encoder_repetition_penalty"] = float(ai_encoder_repetition_penalty)
-    talk_paramaters["no_repeat_ngram_size"] = int(ai_no_repeat_ngram_size)
-    talk_paramaters["min_length"] = int(ai_min_length)
+    talk_paramaters["min_length"] = ai_min_length
+    talk_paramaters["max_new_tokens"] = ai_max_new_tokens
+    talk_paramaters["temperature"] = ai_temperature
+    talk_paramaters["top_p"] = ai_top_p
+    talk_paramaters["top_k"] = ai_top_k
+    talk_paramaters["typical_p"] = ai_typical_p
+    talk_paramaters["repetition_penalty"] = ai_repetition_penalty
+    talk_paramaters["encoder_repetition_penalty"] = ai_encoder_repetition_penalty
+    talk_paramaters["no_repeat_ngram_size"] = ai_no_repeat_ngram_size
+    talk_paramaters["seed"] = int(ai_seed)
 
     system_input =  current_conversation["system_iput"]
     system_message = {}
@@ -394,36 +398,44 @@ def language_init():
     return ""
 def temperature_init():
     if "temperature" in memory:
-        return memory["temperature"]
+        return memory["last_temperature"]
     return talk_paramaters['temperature']
 def top_p_init():
     if "top_p" in memory:
-        return memory["top_p"]
+        return memory["last_top_p"]
     return talk_paramaters['top_p']
 def top_k_init():
     if "top_k" in memory:
-        return memory["top_k"]
+        return memory["last_top_k"]
     return talk_paramaters['top_k']
 def typical_p_init():
     if "typical_p" in memory:
-        return memory["typical_p"]
+        return memory["last_typical_p"]
     return talk_paramaters['typical_p']
+def seed_init():
+    if "seed" in memory:
+        return memory["last_seed"]
+    return talk_paramaters['seed']
 def repetition_penalty_init():
     if "repetition_penalty" in memory:
-        return memory["repetition_penalty"]
+        return memory["last_repetition_penalty"]
     return talk_paramaters['repetition_penalty']
 def encoder_repetition_penalty_init():
     if "encoder_repetition_penalty" in memory:
-        return memory["encoder_repetition_penalty"]
+        return memory["last_encoder_repetition_penalty"]
     return talk_paramaters['encoder_repetition_penalty']
 def no_repeat_ngram_size_init():
     if "no_repeat_ngram_size" in memory:
-        return memory["no_repeat_ngram_size"]
+        return memory["last_no_repeat_ngram_size"]
     return talk_paramaters['no_repeat_ngram_size']
 def min_length_init():
     if "min_length" in memory:
-        return memory["min_length"]
+        return memory["last_min_length"]
     return talk_paramaters['min_length']
+def max_new_tokens_init():
+    if "max_new_tokens" in memory:
+        return memory["max_new_tokens"]
+    return ai_token_limit
 def model_init():
     if "last_model" in memory:
         return memory["last_model"]
@@ -487,9 +499,10 @@ def genarate_talk(messages):
 
     if 'tokenizer' not in globals():
         model_load(talk_paramaters['model_txt'])
+
+    torch.manual_seed(talk_paramaters["seed"])
     if model_txt == "stabilityai/japanese-stablelm-base-alpha-7b":
         input_ids = tokenizer.encode(talk,add_special_tokens=False,return_tensors="pt")
-        torch.manual_seed(23)
         tokens = model.generate(
             input_ids.to(device=model.device),
             max_new_tokens=ai_token_limit,
@@ -598,20 +611,22 @@ with gr.Blocks(title="ChatSwitch") as demo:
         with gr.Column(scale=2):
             new_button = gr.ClearButton(value=_("new chat"),components=[chatbot])
             model_txt = gr.Dropdown(label=_("model"),value=model_init,container=True,choices=llm_model_list)
-            system_txt = gr.Textbox(label=_("system prompt"),placeholder=_("system: user: assistant: save:Enter"),value=get_memory_variable("last_system_prompt"),container=True,lines=1)
-            prompt_memo = gr.Textbox(label=_("prompt memo"),placeholder=_("memo holder save:Enter"),value=get_memory_variable("prompt_memo"),container=True,lines=1)
+            system_txt = gr.Textbox(label=_("system prompt"),placeholder="system: user: assistant:",value=get_memory_variable("last_system_prompt"),container=True,lines=1)
+            prompt_memo = gr.Textbox(label=_("prompt memo"),placeholder=_("memo holder"),value=get_memory_variable("prompt_memo"),container=True,lines=1)
             with gr.Tab(_("Chat history")):
                 list_history = gr.List(load_history,headers=[_("title"),"DEL","id"],datatype="str",col_count=(3, "fixed"),max_rows=10,interactive=False)
             with gr.Tab("AI"):
                 with gr.Row():
-                    ai_temperature = gr.Textbox(label="temperature",value=temperature_init(),scale=1)
-                    ai_top_p = gr.Textbox(label="top_p",value=top_p_init(),scale=1)
-                    ai_top_k = gr.Textbox(label="top_k",value=top_k_init(),scale=1)
-                    ai_typical_p = gr.Textbox(label="typical_p",value=typical_p_init(),scale=1)
-                    ai_repetition_penalty = gr.Textbox(label="repetition_penalty",value=repetition_penalty_init(),scale=1)
-                    ai_encoder_repetition_penalty = gr.Textbox(label="encoder_repetition_penalty",value=encoder_repetition_penalty_init(),scale=1)
-                    ai_no_repeat_ngram_size = gr.Textbox(label="no_repeat_ngram_size",value=no_repeat_ngram_size_init(),scale=1)
-                    ai_min_length = gr.Textbox(label="min_length",value=min_length_init(),scale=1)
+                    ai_min_length = gr.Slider(label="min_length",value=min_length_init(),scale=1,minimum=0,maximum=1,step=1)
+                    ai_max_new_tokens = gr.Slider(label="max_new_tokens",value=max_new_tokens_init(),scale=1,minimum=ai_token_limit,maximum=1,step=1)
+                    ai_temperature = gr.Slider(label="temperature",value=temperature_init(),scale=1,minimum=0.01,maximum=1.99,step=0.01)
+                    ai_top_p = gr.Slider(label="top_p",value=top_p_init(),scale=1,minimum=0,maximum=1,step=0.01)
+                    ai_top_k = gr.Slider(label="top_k",value=top_k_init(),scale=1,minimum=0,maximum=200,step=1)
+                    ai_typical_p = gr.Slider(label="typical_p",value=typical_p_init(),scale=1,minimum=0,maximum=1,step=0.01)
+                    ai_repetition_penalty = gr.Slider(label="repetition penalty",value=repetition_penalty_init(),scale=1,minimum=1,maximum=1.5,step=0.01)
+                    ai_encoder_repetition_penalty = gr.Slider(label="encoder repetition penalty",value=encoder_repetition_penalty_init(),scale=1,minimum=0.8,maximum=1.5,step=0.01)
+                    ai_no_repeat_ngram_size = gr.Slider(label="no repeat ngram size",value=no_repeat_ngram_size_init(),scale=1,minimum=0,maximum=20,step=1)
+                    ai_seed = gr.Textbox(label="seed",value=seed_init(),scale=1)
             with gr.Tab("Stable Diffusion"):
                 sd_enable = gr.Checkbox(label=_("enable"),value=False)
                 sd_host = gr.Textbox(label="Host",value=sd_host_init(),placeholder="http://127.0.0.1:7860")
@@ -621,26 +636,29 @@ with gr.Blocks(title="ChatSwitch") as demo:
             with gr.Tab("option"):
                 language = gr.Dropdown(label="language *need python reboot",value=language_init,container=True,choices=["Englich","日本語"])
 
-    txt_msg = user_prompt.submit(add_text, [chatbot, user_prompt, system_txt], [chatbot, user_prompt, system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length], outputs=chatbot).then(add_history, list_history, list_history).then(get_SD_pictures, inputs=[chatbot,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint], outputs=chatbot)
+    txt_msg = user_prompt.submit(add_text, [chatbot, user_prompt, system_txt], [chatbot, user_prompt, system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed], outputs=chatbot).then(add_history, list_history, list_history).then(get_SD_pictures, inputs=[chatbot,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint], outputs=chatbot)
     txt_msg.then(lambda: gr.update(interactive=True), None, [user_prompt])
     new_button.click(new_chat).then(model_load,model_txt)
     model_txt.change(lambda x: memory.update({"last_model": x}),inputs=model_txt).then(save_memory).then(model_load,model_txt,model_txt)
-    prompt_memo.submit(lambda x: memory.update({"prompt_memo": x}),prompt_memo).then(save_memory)
+    prompt_memo.change(lambda x: memory.update({"prompt_memo": x}),prompt_memo).then(save_memory)
     list_history.select(fn=load_conversation,inputs=[list_history,chatbot],outputs=[list_history,chatbot])
-    system_txt.submit(lambda x: memory.update({"last_system_prompt": x}),system_txt).then(save_memory)
+    system_txt.change(lambda x: memory.update({"last_system_prompt": x}),system_txt).then(save_memory)
     sd_enable.change(lambda x: memory.update({"last_sd_enable": x}),sd_enable).then(save_memory)
-    sd_host.submit(lambda x: memory.update({"last_sd_host": x}),sd_host).then(save_memory)
-    sd_chekpoint.submit(lambda x: memory.update({"last_sd_chekpoint": x}),sd_chekpoint).then(save_memory)
-    sd_prompt.submit(lambda x: memory.update({"last_sd_prompt": x}),sd_prompt).then(save_memory)
-    sd_negative.submit(lambda x: memory.update({"last_sd_negative": x}),sd_negative).then(save_memory)
-    ai_temperature.submit(lambda x: memory.update({"last_ai_temperature": x}),ai_temperature).then(save_memory)
-    ai_top_p.submit(lambda x: memory.update({"last_ai_top_p": x}),ai_top_p).then(save_memory)
-    ai_top_k.submit(lambda x: memory.update({"last_ai_top_k": x}),ai_top_k).then(save_memory)
-    ai_typical_p.submit(lambda x: memory.update({"last_ai_typical_p": x}),ai_typical_p).then(save_memory)
-    ai_repetition_penalty.submit(lambda x: memory.update({"last_ai_repetition_penalty": x}),ai_repetition_penalty).then(save_memory)
-    ai_encoder_repetition_penalty.submit(lambda x: memory.update({"last_ai_encoder_repetition_penalty": x}),ai_encoder_repetition_penalty).then(save_memory)
-    ai_no_repeat_ngram_size.submit(lambda x: memory.update({"last_ai_no_repeat_ngram_size": x}),ai_no_repeat_ngram_size).then(save_memory)
-    ai_min_length.submit(lambda x: memory.update({"last_ai_min_length": x}),ai_min_length).then(save_memory)
+    sd_host.change(lambda x: memory.update({"last_sd_host": x}),sd_host).then(save_memory)
+    sd_chekpoint.change(lambda x: memory.update({"last_sd_chekpoint": x}),sd_chekpoint).then(save_memory)
+    sd_prompt.change(lambda x: memory.update({"last_sd_prompt": x}),sd_prompt).then(save_memory)
+    sd_negative.change(lambda x: memory.update({"last_sd_negative": x}),sd_negative).then(save_memory)
+    ai_min_length.change(lambda x: memory.update({"last_ai_min_length": x}),ai_min_length).then(save_memory)
+    ai_max_new_tokens.change(lambda x: memory.update({"last_ai_max_new_tokens": x}),ai_max_new_tokens).then(save_memory)
+    ai_temperature.change(lambda x: memory.update({"last_ai_temperature": x}),ai_temperature).then(save_memory)
+    ai_top_p.change(lambda x: memory.update({"last_ai_top_p": x}),ai_top_p).then(save_memory)
+    ai_top_k.change(lambda x: memory.update({"last_ai_top_k": x}),ai_top_k).then(save_memory)
+    ai_typical_p.change(lambda x: memory.update({"last_ai_typical_p": x}),ai_typical_p).then(save_memory)
+    ai_repetition_penalty.change(lambda x: memory.update({"last_ai_repetition_penalty": x}),ai_repetition_penalty).then(save_memory)
+    ai_encoder_repetition_penalty.change(lambda x: memory.update({"last_ai_encoder_repetition_penalty": x}),ai_encoder_repetition_penalty).then(save_memory)
+    ai_no_repeat_ngram_size.change(lambda x: memory.update({"last_ai_no_repeat_ngram_size": x}),ai_no_repeat_ngram_size).then(save_memory)
+    ai_max_new_tokens.change(lambda x: memory.update({"last_ai_max_new_tokens": x}),ai_max_new_tokens).then(save_memory)
+    ai_seed.change(lambda x: memory.update({"last_ai_seed": x}),ai_seed).then(save_memory)
     language.change(lambda x: memory.update({"last_language": x}),inputs=language).then(save_memory).then(language_change,language).then(restart)
 
 if __name__ == "__main__":
