@@ -14,6 +14,7 @@ import requests
 import base64
 from pathlib import Path
 import locale
+import random
 
 # システムのロケール設定を取得
 default_locale = locale.getdefaultlocale()[0]
@@ -42,8 +43,6 @@ llm_model_list = [
     "line-corporation/japanese-large-lm-1.7b-instruction-sft",
     "cyberagent/open-calm-7b",
     ]
-
-sd_subject = ""
 
 def count_tokens(text, encoding: tiktoken.Encoding):
     return len(encoding.encode(text))
@@ -101,6 +100,7 @@ def init_chat():
     global ai_token_limit
     global encoding
     global talk_paramaters
+    global sd_paramaters
     messages = []
     messages_limit = 1024 * 2
     ai_token_limit = 200
@@ -121,10 +121,18 @@ def init_chat():
         'no_repeat_ngram_size': 0,
         'epsilon_cutoff': 0,
         'eta_cutoff': 0,
-        'max_new_tokens': ai_token_limit,
+        'max_new_tokens': 64,
         'min_length': 0,
         'seed': -1,
         }
+    sd_paramaters = {
+        'sd_enable': '',
+        'sd_host': '',
+        'sd_prompt': '',
+        'sd_negative': '',
+        'sd_chekpoint': '',
+    }
+
 
 def load_conversation(data: gr.SelectData, list_history, chatbot) -> int:
     global conversations
@@ -177,7 +185,7 @@ def add_history(list_history):
         list_history += [[current_conversation["title"],"🗑️",current_conversation["id"]],]
     return list_history
 
-def load_history():
+def list_history_init():
     if "conversations" in memory:
         tmp = []
         for conversation in memory["conversations"]:
@@ -248,9 +256,10 @@ def add_text(history, text, system_txt):
     current_conversation["system_iput"] = system_txt
     return history, gr.update(value="", interactive=False), system_txt
 
-def chat(history,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed):
+def chat(history,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint):
     global messages
     global talk_paramaters
+    global sd_paramaters
 
     talk_paramaters["min_length"] = ai_min_length
     talk_paramaters["max_new_tokens"] = ai_max_new_tokens
@@ -262,6 +271,11 @@ def chat(history,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repe
     talk_paramaters["encoder_repetition_penalty"] = ai_encoder_repetition_penalty
     talk_paramaters["no_repeat_ngram_size"] = ai_no_repeat_ngram_size
     talk_paramaters["seed"] = int(ai_seed)
+    sd_paramaters["sd_enable"] = sd_enable
+    sd_paramaters["sd_host"] = sd_host
+    sd_paramaters["sd_chekpoint"] = sd_chekpoint
+    sd_paramaters["sd_prompt"] = sd_prompt
+    sd_paramaters["sd_negative"] = sd_negative
 
     system_input =  current_conversation["system_iput"]
     system_message = {}
@@ -269,7 +283,7 @@ def chat(history,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repe
         count = count_tokens(system_input, encoding)
         if count > messages_limit:
             system_input = split_string_with_limit(system_input, messages_limit, encoding)
-        system_message =  {"role": talk_paramaters["assistant_role_name"], "content": system_input}
+        system_message =  {"role": talk_paramaters["system_role_name"], "content": system_input}
         messages.append(system_message)
     else :
         messages[0]["content"] = system_input
@@ -284,16 +298,16 @@ def chat(history,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repe
     messages.append(user_message)
 
     talk_paramaters["model_txt"] = model_txt
-    output = genarate_talk(messages)
+    output,seed = genarate_talk(messages)
     
     history[-1][1] = output
 
     ai_response = {"role": talk_paramaters['assistant_role_name'], "content": history[-1][1]}
     messages.append(ai_response)
     if "title" not in current_conversation:
-        current_conversation["title"] = user_input[:10]
+        current_conversation["title"] = user_input[:20]
         current_conversation["create_time"] = time.time()
-        current_conversation["id"] = str(time.time()) + user_input[:10]
+        current_conversation["id"] = str(time.time()) + user_input[:5]
         current_conversation["messages"] = []
         current_conversation["messages"].append(system_message)
         current_conversation["update_time"] = time.time()
@@ -305,7 +319,7 @@ def chat(history,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repe
     memory["last_conversation"] = current_conversation["id"]
 
     save_memory()
-    return history
+    return history,seed
 
 def get_memory_variable(var_name):
     if var_name in memory:
@@ -342,14 +356,14 @@ def sd_negative_init():
         return memory["last_sd_negative"]
     return ""
     
-def get_SD_pictures(history,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint):
-    if not sd_enable:
-        return history
+def get_sd_image():
+    global sd_paramaters
+
     params = {
-        'address': sd_host,
+        'address': sd_paramaters["sd_host"],
         'save_img': True,
-        'prompt_prefix': sd_prompt,
-        'negative_prompt': sd_negative,
+        'prompt_prefix': sd_paramaters["sd_prompt"],
+        'negative_prompt': sd_paramaters["sd_negative"],
         'width': 512,
         'height': 512,
         'denoising_strength': 0.7,
@@ -361,7 +375,7 @@ def get_SD_pictures(history,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint
         'sampler_name': 'Euler a',
         'steps': 20,
         'cfg_scale': 7,
-        'sd_checkpoint': sd_chekpoint,
+        'sd_checkpoint': sd_paramaters["sd_chekpoint"],
         'checkpoint_list': [" "]
     }
     payload = {
@@ -398,9 +412,8 @@ def get_SD_pictures(history,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint
             output_file.parent.mkdir(parents=True, exist_ok=True)
             with open(output_file.as_posix(), 'wb') as f:
                 f.write(img_data)
-    history = history + [((f"outputs/{save_path}.png",), None)]
 
-    return history
+    return "data:image/png;base64," + base64.b64encode(img_data).decode('utf-8')
 
 def language_change(language):
     if language == "日本語":
@@ -449,8 +462,8 @@ def min_length_init():
         return memory["last_min_length"]
     return talk_paramaters['min_length']
 def max_new_tokens_init():
-    if "max_new_tokens" in memory:
-        return memory["max_new_tokens"]
+    if "last_max_new_tokens" in memory:
+        return memory["last_max_new_tokens"]
     return ai_token_limit
 def model_init():
     if "last_model" in memory:
@@ -504,6 +517,7 @@ def genarate_talk(messages):
     global model
     global tokenizer
     global talk_paramaters
+    global sd_paramaters
 
     model_txt = talk_paramaters['model_txt']
 
@@ -517,10 +531,13 @@ def genarate_talk(messages):
             talk += f"{message['role']}: {message['content']}\n"
         talk += f"\n{talk_paramaters['assistant_role_name']}: "
 
-    if 'tokenizer' not in globals():
+    if 'tokenizer' not in globals() or 'model' not in globals():
         model_load(talk_paramaters['model_txt'])
-
-    torch.manual_seed(talk_paramaters["seed"])
+    if talk_paramaters["seed"] == -1:
+        seed = random.randint(0, 0xffffffffffffffff)
+    else:
+        seed = talk_paramaters["seed"]
+    torch.manual_seed(seed)
     if model_txt == "stabilityai/japanese-stablelm-base-alpha-7b":
         input_ids = tokenizer.encode(talk,add_special_tokens=False,return_tensors="pt")
         tokens = model.generate(
@@ -632,8 +649,9 @@ def genarate_talk(messages):
         output = output.replace('<|endoftext|>', '')
 
     output = re.sub('(.|\n)*' + talk_paramaters["assistant_role_name"] + ': (.*?)', '\\2', output)
+    sd_image = f"\n<img src='{get_sd_image()}'>" if sd_paramaters["sd_enable"] else ""
 
-    return output
+    return output + sd_image, seed
 
 def restart():
     import sys
@@ -644,18 +662,32 @@ def restart():
     import os
     os.execv(sys.executable, ['python'] + sys.argv)
 
+def undo_message(chatbot,user_prompt,list_history):
+    global messages
+    global memory
+    current_conversation["messages"].pop(-1)
+    current_conversation["messages"].pop(-1)
+    user_prompt = chatbot.pop(-1)[0]
+    del conversations[current_conversation["id"]]
+    list_history = list_history_init()
+    save_memory()
+    return chatbot,user_prompt,list_history
+
 with gr.Blocks(title="ChatSwitch") as demo:
     with gr.Row():
         with gr.Column(scale=5, min_width=600):
             chatbot = gr.Chatbot(load_last_conversation, elem_id="chatbot",height=800)
             user_prompt = gr.Textbox(placeholder=_("new line:Shift+Enter Send:Enter"),show_label=False,container=True,lines=1,autofocus=True)
+            with gr.Row():
+                undo_button = gr.Button(value=_("undo"))
+                send_button = gr.Button(value=_("send"),variant="primary")
         with gr.Column(scale=2):
             new_button = gr.ClearButton(value=_("new chat"),components=[chatbot])
             model_txt = gr.Dropdown(label=_("model"),value=model_init,container=True,choices=llm_model_list)
             system_txt = gr.Textbox(label=_("system prompt"),placeholder="system: user: assistant:",value=get_memory_variable("last_system_prompt"),container=True,lines=1)
             prompt_memo = gr.Textbox(label=_("prompt memo"),placeholder=_("memo holder"),value=get_memory_variable("prompt_memo"),container=True,lines=1)
             with gr.Tab(_("Chat history")):
-                list_history = gr.List(load_history,headers=[_("title"),"DEL","id"],datatype="str",col_count=(3, "fixed"),max_rows=10,interactive=False)
+                list_history = gr.List(list_history_init,headers=[_("title"),"DEL","id"],datatype="str",col_count=(3, "fixed"),max_rows=10,interactive=False)
             with gr.Tab("AI"):
                 with gr.Row():
                     ai_min_length = gr.Slider(label="min_length",value=min_length_init(),scale=1,minimum=0,maximum=ai_token_limit,step=1)
@@ -677,8 +709,11 @@ with gr.Blocks(title="ChatSwitch") as demo:
             with gr.Tab("option"):
                 language = gr.Dropdown(label="language *need python reboot",value=language_init,container=True,choices=["Englich","日本語"])
 
-    txt_msg = user_prompt.submit(add_text, [chatbot, user_prompt, system_txt], [chatbot, user_prompt, system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed], outputs=chatbot).then(add_history, list_history, list_history).then(get_SD_pictures, inputs=[chatbot,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint], outputs=chatbot)
+    txt_msg = user_prompt.submit(add_text, [chatbot, user_prompt, system_txt], [chatbot, user_prompt, system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint], outputs=[chatbot,ai_seed]).then(add_history, list_history, list_history)
     txt_msg.then(lambda: gr.update(interactive=True), None, [user_prompt])
+    send_click = send_button.click(add_text, [chatbot, user_prompt, system_txt], [chatbot, user_prompt, system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint], outputs=[chatbot,ai_seed]).then(add_history, list_history, list_history)
+    send_click.then(lambda: gr.update(interactive=True), None, [user_prompt])
+    undo_button.click(undo_message,[chatbot,user_prompt,list_history],[chatbot,user_prompt,list_history])
     new_button.click(new_chat).then(model_load,model_txt)
     model_txt.change(lambda x: memory.update({"last_model": x}),inputs=model_txt).then(save_memory).then(model_load,model_txt,model_txt)
     prompt_memo.change(lambda x: memory.update({"prompt_memo": x}),prompt_memo).then(save_memory)
@@ -698,7 +733,6 @@ with gr.Blocks(title="ChatSwitch") as demo:
     ai_repetition_penalty.change(lambda x: memory.update({"last_ai_repetition_penalty": x}),ai_repetition_penalty).then(save_memory)
     ai_encoder_repetition_penalty.change(lambda x: memory.update({"last_ai_encoder_repetition_penalty": x}),ai_encoder_repetition_penalty).then(save_memory)
     ai_no_repeat_ngram_size.change(lambda x: memory.update({"last_ai_no_repeat_ngram_size": x}),ai_no_repeat_ngram_size).then(save_memory)
-    ai_max_new_tokens.change(lambda x: memory.update({"last_ai_max_new_tokens": x}),ai_max_new_tokens).then(save_memory)
     ai_seed.change(lambda x: memory.update({"last_ai_seed": x}),ai_seed).then(save_memory)
     language.change(lambda x: memory.update({"last_language": x}),inputs=language).then(save_memory).then(language_change,language).then(restart)
 
