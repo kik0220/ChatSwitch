@@ -426,44 +426,44 @@ def language_init():
         return memory["last_language"]
     return ""
 def temperature_init():
-    if "temperature" in memory:
-        return memory["last_temperature"]
+    if "last_ai_temperature" in memory:
+        return memory["last_ai_temperature"]
     return talk_paramaters['temperature']
 def top_p_init():
-    if "top_p" in memory:
-        return memory["last_top_p"]
+    if "last_ai_top_p" in memory:
+        return memory["last_ai_top_p"]
     return talk_paramaters['top_p']
 def top_k_init():
-    if "top_k" in memory:
-        return memory["last_top_k"]
+    if "last_ai_top_k" in memory:
+        return memory["last_ai_top_k"]
     return talk_paramaters['top_k']
 def typical_p_init():
-    if "typical_p" in memory:
-        return memory["last_typical_p"]
+    if "last_ai_typical_p" in memory:
+        return memory["last_ai_typical_p"]
     return talk_paramaters['typical_p']
 def seed_init():
-    if "seed" in memory:
-        return memory["last_seed"]
+    if "last_ai_seed" in memory:
+        return memory["last_ai_seed"]
     return talk_paramaters['seed']
 def repetition_penalty_init():
-    if "repetition_penalty" in memory:
-        return memory["last_repetition_penalty"]
+    if "last_ai_repetition_penalty" in memory:
+        return memory["last_ai_repetition_penalty"]
     return talk_paramaters['repetition_penalty']
 def encoder_repetition_penalty_init():
-    if "encoder_repetition_penalty" in memory:
-        return memory["last_encoder_repetition_penalty"]
+    if "last_ai_encoder_repetition_penalty" in memory:
+        return memory["last_ai_encoder_repetition_penalty"]
     return talk_paramaters['encoder_repetition_penalty']
 def no_repeat_ngram_size_init():
-    if "no_repeat_ngram_size" in memory:
-        return memory["last_no_repeat_ngram_size"]
+    if "last_ai_no_repeat_ngram_size" in memory:
+        return memory["last_ai_no_repeat_ngram_size"]
     return talk_paramaters['no_repeat_ngram_size']
 def min_length_init():
     if "min_length" in memory:
         return memory["last_min_length"]
     return talk_paramaters['min_length']
 def max_new_tokens_init():
-    if "last_max_new_tokens" in memory:
-        return memory["last_max_new_tokens"]
+    if "last_ai_max_new_tokens" in memory:
+        return memory["last_ai_max_new_tokens"]
     return ai_token_limit
 def model_init():
     if "last_model" in memory:
@@ -480,33 +480,22 @@ def model_load(model_txt):
     global messages_limit
     
     if model_txt == "stabilityai/japanese-stablelm-base-alpha-7b":
-        tokenizer = LlamaTokenizer.from_pretrained("novelai/nerdstash-tokenizer-v1", additional_special_tokens=['▁▁'])
+        tokenizer = LlamaTokenizer.from_pretrained("novelai/nerdstash-tokenizer-v1", additional_special_tokens=['▁▁'],legacy=True)
         model = AutoModelForCausalLM.from_pretrained(model_txt,trust_remote_code=True,)
         messages_limit = model_limit_token["stabilityai/japanese-stablelm-base-alpha-7b"]
-        model.half()
-        model.eval()
-        if torch.cuda.is_available():
-            model = model.to("cuda")
     elif model_txt == "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2":
         tokenizer = AutoTokenizer.from_pretrained(model_txt,use_fast=False,legacy=True)
         model = AutoModelForCausalLM.from_pretrained(model_txt)
-        model.half()
-        model.eval()
-        if torch.cuda.is_available():
-            model = model.to("cuda")
     elif model_txt == "cyberagent/open-calm-7b":
         tokenizer = AutoTokenizer.from_pretrained(model_txt)
-        model = AutoModelForCausalLM.from_pretrained(model_txt, device_map="auto", torch_dtype=torch.float16, trust_remote_code=False )
+        model = AutoModelForCausalLM.from_pretrained(model_txt, device_map="auto",torch_dtype=torch.float16,)
     elif model_txt == "line-corporation/japanese-large-lm-1.7b-instruction-sft":
-        tokenizer = AutoTokenizer.from_pretrained(model_txt, use_fast=False)
+        tokenizer = AutoTokenizer.from_pretrained(model_txt,use_fast=False)
         model = AutoModelForCausalLM.from_pretrained(model_txt)
-        model.half()
-        model.eval()
-        if torch.cuda.is_available():
-            model = model.to("cuda")
     elif model_txt == "matsuo-lab/weblab-10b-instruction-sft":
         tokenizer = AutoTokenizer.from_pretrained(model_txt)
         model = AutoModelForCausalLM.from_pretrained(model_txt)
+    if model_txt != "cyberagent/open-calm-7b":
         model.half()
         model.eval()
         if torch.cuda.is_available():
@@ -625,7 +614,6 @@ def genarate_talk(messages):
         )[0]['generated_text']
         output = re.sub('システム', talk_paramaters["assistant_role_name"], output)
     elif model_txt == "matsuo-lab/weblab-10b-instruction-sft":
-        # recomend system = "以下は、タスクを説明する指示です。要求を適切に満たす応答を書きなさい。"
         talk = re.sub(talk_paramaters["user_role_name"], '### 指示', talk)
         talk = re.sub(talk_paramaters["assistant_role_name"], '### 応答', talk)
         token_ids = tokenizer.encode(talk, add_special_tokens=False, return_tensors="pt")
@@ -663,15 +651,19 @@ def restart():
     os.execv(sys.executable, ['python'] + sys.argv)
 
 def undo_message(chatbot,user_prompt,list_history):
-    global messages
-    global memory
+    if len(current_conversation) < 3:
+        return chatbot,user_prompt,list_history
     current_conversation["messages"].pop(-1)
     current_conversation["messages"].pop(-1)
     user_prompt = chatbot.pop(-1)[0]
-    del conversations[current_conversation["id"]]
+    if current_conversation["id"] in conversations and len(current_conversation["id"]) < 2:
+        del conversations[current_conversation["id"]]
     list_history = list_history_init()
     save_memory()
     return chatbot,user_prompt,list_history
+
+def set_random_seed():
+    return -1
 
 with gr.Blocks(title="ChatSwitch") as demo:
     with gr.Row():
@@ -679,6 +671,7 @@ with gr.Blocks(title="ChatSwitch") as demo:
             chatbot = gr.Chatbot(load_last_conversation, elem_id="chatbot",height=800)
             user_prompt = gr.Textbox(placeholder=_("new line:Shift+Enter Send:Enter"),show_label=False,container=True,lines=1,autofocus=True)
             with gr.Row():
+                regenerate_button = gr.Button(value=_("regenerate"))
                 undo_button = gr.Button(value=_("undo"))
                 send_button = gr.Button(value=_("send"),variant="primary")
         with gr.Column(scale=2):
@@ -714,6 +707,8 @@ with gr.Blocks(title="ChatSwitch") as demo:
     send_click = send_button.click(add_text, [chatbot, user_prompt, system_txt], [chatbot, user_prompt, system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint], outputs=[chatbot,ai_seed]).then(add_history, list_history, list_history)
     send_click.then(lambda: gr.update(interactive=True), None, [user_prompt])
     undo_button.click(undo_message,[chatbot,user_prompt,list_history],[chatbot,user_prompt,list_history])
+    regenerate = regenerate_button.click(undo_message,[chatbot,user_prompt,list_history],[chatbot,user_prompt,list_history]).then(set_random_seed,outputs=ai_seed).then(add_text, [chatbot, user_prompt, system_txt], [chatbot, user_prompt, system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint], outputs=[chatbot,ai_seed]).then(add_history, list_history, list_history)
+    regenerate.then(lambda: gr.update(interactive=True), None, [user_prompt])
     new_button.click(new_chat).then(model_load,model_txt)
     model_txt.change(lambda x: memory.update({"last_model": x}),inputs=model_txt).then(save_memory).then(model_load,model_txt,model_txt)
     prompt_memo.change(lambda x: memory.update({"prompt_memo": x}),prompt_memo).then(save_memory)
