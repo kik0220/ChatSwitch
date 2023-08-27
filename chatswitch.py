@@ -164,9 +164,13 @@ def load_last_conversation():
     if "messages" in current_conversation:
         temp2 = current_conversation["messages"]
         for i in range(1, len(temp2), 2):
-            user_content = temp2[i]["content"]
-            assistant_content = temp2[i + 1]["content"]
-            temp.append((user_content, assistant_content))
+            try:
+                user_content = temp2[i]["content"]
+                assistant_content = temp2[i + 1]["content"]
+                temp.append((user_content, assistant_content))
+            except:
+                print(f"load_last_conversation error:\n{temp2[i]}")
+                del current_conversation["messages"][i]
     return temp
 
 def add_history(list_history):
@@ -190,7 +194,7 @@ def list_history_init():
         tmp = []
         for conversation in memory["conversations"]:
             tmp.append([memory["conversations"][conversation]["title"],"🗑️",memory["conversations"][conversation]["id"]])
-            return tmp
+        return tmp
     return [['','','']]
 
 def new_chat():
@@ -297,8 +301,14 @@ def chat(history,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repe
     user_message = {"role": talk_paramaters["user_role_name"], "content": user_input}
     messages.append(user_message)
 
+    seed = talk_paramaters["seed"]
     talk_paramaters["model_txt"] = model_txt
-    output,seed = genarate_talk(messages)
+    try:
+        output,seed = genarate_talk(messages)
+    except:
+        print(f"genarate_talk error")
+        history.pop(-1)
+        return history,user_input,seed
     
     history[-1][1] = output
 
@@ -319,7 +329,7 @@ def chat(history,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repe
     memory["last_conversation"] = current_conversation["id"]
 
     save_memory()
-    return history,seed
+    return history,"",seed
 
 def get_memory_variable(var_name):
     if var_name in memory:
@@ -702,12 +712,13 @@ with gr.Blocks(title="ChatSwitch") as demo:
             with gr.Tab("option"):
                 language = gr.Dropdown(label="language *need python reboot",value=language_init,container=True,choices=["Englich","日本語"])
 
-    txt_msg = user_prompt.submit(add_text, [chatbot, user_prompt, system_txt], [chatbot, user_prompt, system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint], outputs=[chatbot,ai_seed]).then(add_history, list_history, list_history)
-    txt_msg.then(lambda: gr.update(interactive=True), None, [user_prompt])
-    send_click = send_button.click(add_text, [chatbot, user_prompt, system_txt], [chatbot, user_prompt, system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint], outputs=[chatbot,ai_seed]).then(add_history, list_history, list_history)
-    send_click.then(lambda: gr.update(interactive=True), None, [user_prompt])
+    user_prompt_submit = user_prompt.submit(add_text, [chatbot, user_prompt, system_txt], [chatbot, user_prompt, system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint], outputs=[chatbot,user_prompt,ai_seed]).then(add_history, list_history, list_history)
+    user_prompt_submit.then(lambda x: gr.update(value=x,interactive=True),[user_prompt],[user_prompt])
+    send = send_button.click(add_text, [chatbot, user_prompt, system_txt], [chatbot, user_prompt, system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint], outputs=[chatbot,user_prompt,ai_seed]).then(add_history, list_history, list_history)
+    send.then(lambda x: gr.update(value=x,interactive=True),[user_prompt],[user_prompt])
     undo_button.click(undo_message,[chatbot,user_prompt,list_history],[chatbot,user_prompt,list_history])
-    regenerate = regenerate_button.click(undo_message,[chatbot,user_prompt,list_history],[chatbot,user_prompt,list_history]).then(set_random_seed,outputs=ai_seed).then(add_text, [chatbot, user_prompt, system_txt], [chatbot, user_prompt, system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint], outputs=[chatbot,ai_seed]).then(add_history, list_history, list_history)
+    regenerate = regenerate_button.click(undo_message,[chatbot,user_prompt,list_history],[chatbot,user_prompt,list_history]).then(set_random_seed,outputs=ai_seed).then(add_text,[chatbot,user_prompt,system_txt], [chatbot,user_prompt,system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint], outputs=[chatbot,user_prompt,ai_seed]).then(add_history, list_history, list_history)
+    regenerate.then(lambda x: gr.update(value=x,interactive=True),[user_prompt],[user_prompt])
     regenerate.then(lambda: gr.update(interactive=True), None, [user_prompt])
     new_button.click(new_chat).then(model_load,model_txt)
     model_txt.change(lambda x: memory.update({"last_model": x}),inputs=model_txt).then(save_memory).then(model_load,model_txt,model_txt)
