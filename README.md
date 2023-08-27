@@ -1,5 +1,42 @@
 # ChatSwitch
 
+## インストール
+
+このリポジトリをDownload ZIPでダウンロードするか、gitでcloneしてください。
+
+Windowsの場合は install.bat を、Linux/Macの場合は install.sh を実行してください。
+
+## WebUIの起動
+
+Windowsの場合は webui.bat を、Linux/Macの場合は webui.sh を実行してください。
+
+コンソールにURLが表示されるので、そのURLをブラウザで開いてください。
+
+## 使用方法
+
+モデルを選択し、画面下部のプロンプト入力欄にプロンプトを入力してください。
+
+プロンプトはEnterキーまたは送信ボタンで送れます。
+
+入力された内容はコンピューターのローカルにのみ送られ、外部には一切送られません。
+
+入力内容や設定は、実行フォルダのmemory.pklに保存されます。
+
+モデルを初めて選択したときや、モデルに更新があった際は、自動でダウンロードが行われ、modelsフォルダに保存されます。
+![](SS5.png)
+
+## ライセンス
+
+このプロジェクトは MIT ライセンスに基づいてライセンスされています。 ライセンス条項に基づいて、自由に使用、変更、配布、販売することができます。 詳細については、プロジェクト リポジトリの [LICENSE](LICENSE) ファイルを参照してください。
+
+## 謝辞とクレジット
+
+このプロジェクトは、多くのLLMに大いにインスパイアされました。このような先駆的な研究と公開モデルなしでは、本プロジェクトは成立しえませんでした。
+
+このプロジェクトでは、ユーザー インターフェイスを作成するためのオープンソース ライブラリである [Gradio](https://gradio.app/) を使用します。 利用規約については、Gradio の [ライセンス](https://github.com/gradio-app/gradio/blob/master/LICENSE) を参照してください。
+
+このプロジェクトは、[oababooga/text-generation-webui](https://github.com/oababooga/text-generation-webui/) から深くインスピレーションを受けました。 このコンセプトは私の作業に大きな影響を与えただけでなく、そのコードの一部を適応させました。 リポジトリで提供される革新的なアイデアと実装の詳細に非常に深く感謝をしています。
+
 ## Installation
 
 ### Windows
@@ -58,11 +95,6 @@ This project allows you to switch between multiple LLMs and chat with them. All 
 
 - **Switching LLMs**: You can easily switch between different Language Models.
 - **Local Conversations**: All conversations are saved locally in `memory.pkl`, allowing you to resume previous chats.
-- **Japanese language support**:
-<details><summary>Screen shot</summary>
-
-![](SS5.png)
-</details>
  
 ### How to Use
 
@@ -82,6 +114,8 @@ Feel free to explore and enjoy chatting with various Language Models!
 This project is licensed under the MIT License. You are free to use, modify, distribute, and sell it under the terms of the license. For more details, see the [LICENSE](LICENSE) file in the project repository.
 
 ## Acknowledgments and Credits
+
+This project was heavily inspired by many LLMs. Without such pioneering research and public models, this project would not have been possible.
 
 This project uses [Gradio](https://gradio.app/), an open-source library for creating user interfaces. Please refer to Gradio's [license](https://github.com/gradio-app/gradio/blob/master/LICENSE) for terms and conditions.
 

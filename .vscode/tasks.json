@@ -33,7 +33,7 @@
     {
       "label": "Docker run :7860",
       "type": "shell",
-      "command": "docker run -d -p 7860:7860 chatswitch",
+      "command": "docker run -d -p 7860:7860 kik0220/chatswitch:latest",
       "group": {
         "kind": "build",
         "isDefault": true
