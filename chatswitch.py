@@ -259,76 +259,6 @@ def add_text(history, text, system_txt):
     current_conversation["system_iput"] = system_txt
     return history, gr.update(value="", interactive=False), system_txt
 
-def chat(history,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint):
-    global messages
-    global talk_paramaters
-    global sd_paramaters
-
-    talk_paramaters["min_length"] = ai_min_length
-    talk_paramaters["max_new_tokens"] = ai_max_new_tokens
-    talk_paramaters["temperature"] = ai_temperature
-    talk_paramaters["top_p"] = ai_top_p
-    talk_paramaters["top_k"] = ai_top_k
-    talk_paramaters["typical_p"] = ai_typical_p
-    talk_paramaters["repetition_penalty"] = ai_repetition_penalty
-    talk_paramaters["encoder_repetition_penalty"] = ai_encoder_repetition_penalty
-    talk_paramaters["no_repeat_ngram_size"] = ai_no_repeat_ngram_size
-    talk_paramaters["seed"] = int(ai_seed) if ai_seed != '' else -1
-    sd_paramaters["sd_enable"] = sd_enable
-    sd_paramaters["sd_host"] = sd_host
-    sd_paramaters["sd_chekpoint"] = sd_chekpoint
-    sd_paramaters["sd_prompt"] = sd_prompt
-    sd_paramaters["sd_negative"] = sd_negative
-
-    system_input =  current_conversation["system_iput"]
-    system_message = {}
-    if len(messages) < 1:
-        count = count_tokens(system_input, encoding)
-        if count > messages_limit:
-            system_input = split_string_with_limit(system_input, messages_limit, encoding)
-        system_message =  {"role": talk_paramaters["system_role_name"], "content": system_input}
-        messages.append(system_message)
-    else :
-        messages[0]["content"] = system_input
-
-    user_input = history[-1][0]
-
-    count = count_tokens(user_input, encoding)
-    if count > messages_limit:
-        user_input = split_string_with_limit(user_input, messages_limit, encoding)
-
-    user_message = {"role": talk_paramaters["user_role_name"], "content": user_input}
-    messages.append(user_message)
-
-    seed = talk_paramaters["seed"]
-    talk_paramaters["model_txt"] = model_txt
-    try:
-        output,seed = genarate_talk(messages)
-    except:
-        print(f"genarate_talk error")
-        history.pop(-1)
-        return history,user_input
-    
-    history[-1][1] = output
-
-    ai_response = {"role": talk_paramaters['assistant_role_name'], "content": history[-1][1], "model": model_txt, "seed": seed}
-    messages.append(ai_response)
-    if "title" not in current_conversation:
-        current_conversation["title"] = user_input[:20]
-        current_conversation["create_time"] = time.time()
-        current_conversation["id"] = str(time.time()) + user_input[:5]
-        current_conversation["messages"] = []
-        current_conversation["messages"].append(system_message)
-        current_conversation["update_time"] = time.time()
-    current_conversation["update_time"] = time.time()
-    current_conversation["messages"].append(user_message)
-    current_conversation["messages"].append(ai_response)
-    conversations[current_conversation["id"]] = current_conversation
-    memory["conversations"] = conversations
-    memory["last_conversation"] = current_conversation["id"]
-
-    save_memory()
-    return history,""
 
 def get_memory_variable(var_name):
     if var_name in memory:
@@ -483,6 +413,175 @@ def model_save(model_txt):
     memory["last_model"] = model_txt
     save_memory()
 
+def model_generate(model, input_ids):
+    tokens = model.generate(
+        input_ids.to(device=model.device),
+        do_sample=True,
+        encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
+        epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
+        eta_cutoff=talk_paramaters["eta_cutoff"],
+        max_new_tokens=talk_paramaters["max_new_tokens"],
+        min_length=talk_paramaters["min_length"],
+        no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
+        repetition_penalty=talk_paramaters["repetition_penalty"],
+        top_k=talk_paramaters["top_k"],
+        top_p=talk_paramaters["top_k"],
+        typical_p=talk_paramaters["typical_p"],
+    )
+    return tokens
+def model_generate_pad_bos_eos(model, token_ids):
+    with torch.no_grad():
+        output_ids = model.generate(
+            token_ids.to(model.device),
+            do_sample=True,
+            encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
+            epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
+            eta_cutoff=talk_paramaters["eta_cutoff"],
+            max_new_tokens=talk_paramaters["max_new_tokens"],
+            min_length=talk_paramaters["min_length"],
+            no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
+            repetition_penalty=talk_paramaters["repetition_penalty"],
+            temperature=talk_paramaters["temperature"],
+            top_k=talk_paramaters["top_k"],
+            top_p=talk_paramaters["top_k"],
+            typical_p=talk_paramaters["typical_p"],
+            pad_token_id=tokenizer.pad_token_id,
+            bos_token_id=tokenizer.bos_token_id,
+            eos_token_id=tokenizer.eos_token_id,
+        )
+    return output_ids
+def model_generate_pad(model, inputs):
+    with torch.no_grad():
+        tokens = model.generate(
+            **inputs,
+            do_sample=True,
+            encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
+            epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
+            eta_cutoff=talk_paramaters["eta_cutoff"],
+            max_new_tokens=talk_paramaters["max_new_tokens"],
+            min_length=talk_paramaters["min_length"],
+            no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
+            repetition_penalty=talk_paramaters["repetition_penalty"],
+            temperature=talk_paramaters["temperature"],
+            top_k=talk_paramaters["top_k"],
+            top_p=talk_paramaters["top_k"],
+            typical_p=talk_paramaters["typical_p"],
+             pad_token_id=tokenizer.pad_token_id,
+       ) 
+    return tokens
+def pipeline_generate(model, tokenizer, talk):
+    generator = pipeline("text-generation", model=model, tokenizer=tokenizer, device=0)
+    output = generator(
+        talk,
+        do_sample = True,
+        encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
+        epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
+        eta_cutoff=talk_paramaters["eta_cutoff"],
+        max_length = talk_paramaters["max_new_tokens"],
+        min_length=talk_paramaters["min_length"],
+        no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
+        repetition_penalty=talk_paramaters["repetition_penalty"],
+        top_k=talk_paramaters["top_k"],
+        top_p=talk_paramaters["top_k"],
+        typical_p=talk_paramaters["typical_p"],
+        num_beams = 1,
+        num_return_sequences = 1,
+        pad_token_id = tokenizer.pad_token_id,
+    )[0]['generated_text']
+    return output
+def model_generate_torch(model, token_ids):
+    with torch.no_grad():
+        output_ids = model.generate(
+            token_ids.to(model.device),
+            max_new_tokens=talk_paramaters["max_new_tokens"],
+            do_sample=True,
+            top_p=talk_paramaters["top_k"],
+            top_k=talk_paramaters["top_k"],
+            typical_p=talk_paramaters["typical_p"],
+            epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
+            eta_cutoff=talk_paramaters["eta_cutoff"],
+            repetition_penalty=talk_paramaters["repetition_penalty"],
+            encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
+            no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
+            min_length=talk_paramaters["min_length"],
+        )
+        return output_ids
+def set_parameters(ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint):
+    global talk_paramaters
+    global sd_paramaters
+    talk_paramaters["min_length"] = ai_min_length
+    talk_paramaters["max_new_tokens"] = ai_max_new_tokens
+    talk_paramaters["temperature"] = ai_temperature
+    talk_paramaters["top_p"] = ai_top_p
+    talk_paramaters["top_k"] = ai_top_k
+    talk_paramaters["typical_p"] = ai_typical_p
+    talk_paramaters["repetition_penalty"] = ai_repetition_penalty
+    talk_paramaters["encoder_repetition_penalty"] = ai_encoder_repetition_penalty
+    talk_paramaters["no_repeat_ngram_size"] = ai_no_repeat_ngram_size
+    talk_paramaters["seed"] = int(ai_seed) if ai_seed != '' else -1
+    sd_paramaters["sd_enable"] = sd_enable
+    sd_paramaters["sd_host"] = sd_host
+    sd_paramaters["sd_chekpoint"] = sd_chekpoint
+    sd_paramaters["sd_prompt"] = sd_prompt
+    sd_paramaters["sd_negative"] = sd_negative
+
+def chat(history,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint):
+    global messages
+    global talk_paramaters
+    global sd_paramaters
+
+    set_parameters(ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint)
+    system_input =  current_conversation["system_iput"]
+    system_message = {}
+    if len(messages) < 1:
+        count = count_tokens(system_input, encoding)
+        if count > messages_limit:
+            system_input = split_string_with_limit(system_input, messages_limit, encoding)
+        system_message =  {"role": talk_paramaters["system_role_name"], "content": system_input}
+        messages.append(system_message)
+    else :
+        messages[0]["content"] = system_input
+
+    user_input = history[-1][0]
+
+    count = count_tokens(user_input, encoding)
+    if count > messages_limit:
+        user_input = split_string_with_limit(user_input, messages_limit, encoding)
+
+    user_message = {"role": talk_paramaters["user_role_name"], "content": user_input}
+    messages.append(user_message)
+
+    seed = talk_paramaters["seed"]
+    talk_paramaters["model_txt"] = model_txt
+    try:
+        output,seed = genarate_talk(messages)
+    except:
+        print(f"genarate_talk error")
+        history.pop(-1)
+        return history,user_input
+    
+    history[-1][1] = output
+
+    ai_response = {"role": talk_paramaters['assistant_role_name'], "content": history[-1][1], "model": model_txt, "seed": seed}
+    messages.append(ai_response)
+
+    if "title" not in current_conversation:
+        current_conversation["title"] = user_input[:20]
+        current_conversation["create_time"] = time.time()
+        current_conversation["id"] = str(time.time()) + user_input[:5]
+        current_conversation["messages"] = []
+        current_conversation["messages"].append(system_message)
+        current_conversation["update_time"] = time.time()
+    current_conversation["update_time"] = time.time()
+    current_conversation["messages"].append(user_message)
+    current_conversation["messages"].append(ai_response)
+    conversations[current_conversation["id"]] = current_conversation
+    memory["conversations"] = conversations
+    memory["last_conversation"] = current_conversation["id"]
+
+    save_memory()
+    return history,""
+
 def model_load(model_txt):
     global model
     global tokenizer
@@ -538,20 +637,7 @@ def genarate_talk(messages):
     torch.manual_seed(seed)
     if model_txt == "stabilityai/japanese-stablelm-base-alpha-7b":
         input_ids = tokenizer.encode(talk,add_special_tokens=False,return_tensors="pt")
-        tokens = model.generate(
-            input_ids.to(device=model.device),
-            max_new_tokens=talk_paramaters["max_new_tokens"],
-            do_sample=True,
-            top_p=talk_paramaters["top_k"],
-            top_k=talk_paramaters["top_k"],
-            typical_p=talk_paramaters["typical_p"],
-            epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
-            eta_cutoff=talk_paramaters["eta_cutoff"],
-            repetition_penalty=talk_paramaters["repetition_penalty"],
-            encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
-            no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
-            min_length=talk_paramaters["min_length"],
-        )
+        tokens =  model_generate(model, input_ids)
         output = tokenizer.decode(tokens[0], skip_special_tokens=True)
         output = output.replace(talk, '')
     elif  model_txt == "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2":
@@ -559,88 +645,23 @@ def genarate_talk(messages):
         talk = re.sub(talk_paramaters["assistant_role_name"], 'システム', talk)
         talk = talk.replace("\n","<NL>")
         token_ids = tokenizer.encode(talk, add_special_tokens=False, return_tensors="pt")
-        with torch.no_grad():
-            output_ids = model.generate(
-                token_ids.to(model.device),
-                do_sample=True,
-                max_new_tokens=talk_paramaters["max_new_tokens"],
-                temperature=talk_paramaters["temperature"],
-                top_p=talk_paramaters["top_k"],
-                top_k=talk_paramaters["top_k"],
-                typical_p=talk_paramaters["typical_p"],
-                epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
-                eta_cutoff=talk_paramaters["eta_cutoff"],
-                repetition_penalty=talk_paramaters["repetition_penalty"],
-                encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
-                no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
-                min_length=talk_paramaters["min_length"],
-                pad_token_id=tokenizer.pad_token_id,
-                bos_token_id=tokenizer.bos_token_id,
-                eos_token_id=tokenizer.eos_token_id
-            )
+        output_ids = model_generate_pad_bos_eos(model, token_ids)
         output = tokenizer.decode(output_ids.tolist()[0][token_ids.size(1):])
         output = output.replace("<NL>", "\n")
     elif model_txt == "cyberagent/open-calm-7b":
         inputs = tokenizer(talk, return_tensors="pt").to(model.device)
-        with torch.no_grad():
-            tokens = model.generate(
-                **inputs,
-                do_sample=True,
-                max_new_tokens=talk_paramaters["max_new_tokens"],
-                temperature=talk_paramaters["temperature"],
-                top_p=talk_paramaters["top_k"],
-                top_k=talk_paramaters["top_k"],
-                typical_p=talk_paramaters["typical_p"],
-                epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
-                eta_cutoff=talk_paramaters["eta_cutoff"],
-                repetition_penalty=talk_paramaters["repetition_penalty"],
-                encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
-                no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
-                min_length=talk_paramaters["min_length"],
-                pad_token_id=tokenizer.pad_token_id,
-            ) 
+        tokens = model_generate_pad(model, inputs)
         output = tokenizer.decode(tokens[0], skip_special_tokens=True)
     elif model_txt == "line-corporation/japanese-large-lm-1.7b-instruction-sft":
-        generator = pipeline("text-generation", model=model, tokenizer=tokenizer, device=0)
         talk = re.sub(talk_paramaters["user_role_name"], 'ユーザー', talk)
         talk = re.sub(talk_paramaters["assistant_role_name"], 'システム', talk)
-        output = generator(
-            talk,
-            max_length = talk_paramaters["max_new_tokens"],
-            do_sample = True,
-            top_p=talk_paramaters["top_k"],
-            top_k=talk_paramaters["top_k"],
-            typical_p=talk_paramaters["typical_p"],
-            epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
-            eta_cutoff=talk_paramaters["eta_cutoff"],
-            repetition_penalty=talk_paramaters["repetition_penalty"],
-            encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
-            no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
-            min_length=talk_paramaters["min_length"],
-            num_beams = 1,
-            pad_token_id = tokenizer.pad_token_id,
-            num_return_sequences = 1,
-        )[0]['generated_text']
+        output = pipeline_generate(model, tokenizer, talk)
         output = re.sub('システム', talk_paramaters["assistant_role_name"], output)
     elif model_txt == "matsuo-lab/weblab-10b-instruction-sft":
         talk = re.sub(talk_paramaters["user_role_name"], '### 指示', talk)
         talk = re.sub(talk_paramaters["assistant_role_name"], '### 応答', talk)
         token_ids = tokenizer.encode(talk, add_special_tokens=False, return_tensors="pt")
-        with torch.no_grad():
-            output_ids = model.generate(
-                token_ids.to(model.device),
-                max_new_tokens=talk_paramaters["max_new_tokens"],
-                do_sample=True,
-                top_p=talk_paramaters["top_k"],
-                top_k=talk_paramaters["top_k"],
-                typical_p=talk_paramaters["typical_p"],
-                epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
-                eta_cutoff=talk_paramaters["eta_cutoff"],
-                repetition_penalty=talk_paramaters["repetition_penalty"],
-                encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
-                no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
-                min_length=talk_paramaters["min_length"],
-            )
+        output_ids = model_generate_torch(model, token_ids)
         output = tokenizer.decode(output_ids.tolist()[0])
         output = re.sub('### 応答', talk_paramaters["assistant_role_name"], output)
         output = output.replace('<|endoftext|>', '')
