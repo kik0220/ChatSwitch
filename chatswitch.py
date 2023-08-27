@@ -619,23 +619,23 @@ def model_load(model_txt):
     global messages_limit
     
     if model_txt == "stabilityai/japanese-stablelm-base-alpha-7b":
-        tokenizer = LlamaTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"], additional_special_tokens=['▁▁'],legacy=True)
+        tokenizer = LlamaTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"], additional_special_tokens=['▁▁'],legacy=True,cache_dir="models")
         model = AutoModelForCausalLM.from_pretrained(path_of_models[model_txt]["model"],trust_remote_code=True,cache_dir="models")
         messages_limit = model_limit_token[model_txt]
     elif model_txt == "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2":
         tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"],use_fast=False,legacy=True,cache_dir="models")
-        model = AutoModelForCausalLM.from_pretrained(path_of_models[model_txt]["model"])
+        model = AutoModelForCausalLM.from_pretrained(path_of_models[model_txt]["model"],cache_dir="models")
     elif model_txt == "cyberagent/open-calm-7b":
-        tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"])
+        tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"],cache_dir="models")
         model = AutoModelForCausalLM.from_pretrained(path_of_models[model_txt]["model"], device_map="auto",torch_dtype=torch.float16,cache_dir="models")
     elif model_txt == "line-corporation/japanese-large-lm-1.7b-instruction-sft":
-        tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"],use_fast=False)
+        tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"],use_fast=False,cache_dir="models")
         model = AutoModelForCausalLM.from_pretrained(path_of_models[model_txt]["model"],cache_dir="models")
     elif model_txt == "matsuo-lab/weblab-10b-instruction-sft":
-        tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"])
+        tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"],cache_dir="models")
         model = AutoModelForCausalLM.from_pretrained(path_of_models[model_txt]["model"],cache_dir="models")
     elif model_txt == "AIBunCho/japanese-novel-gpt-j-6b":
-        tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"])
+        tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"],cache_dir="models")
         model = GPTJForCausalLM.from_pretrained(path_of_models[model_txt]["model"],cache_dir="models")
         messages_limit = model_limit_token[model_txt]
     if model_txt != "cyberagent/open-calm-7b":
