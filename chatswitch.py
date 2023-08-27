@@ -6,7 +6,7 @@ import pickle
 import gettext
 import gradio as gr
 from newspaper import Article
-from transformers import AutoModelForCausalLM, AutoTokenizer, LlamaTokenizer, pipeline
+from transformers import AutoModelForCausalLM, AutoTokenizer, LlamaTokenizer, pipeline, GPTJForCausalLM
 import torch
 import tiktoken
 import re
@@ -34,15 +34,46 @@ if os.path.exists(user_config_path):
 lang.install()
 _ = lang.gettext
 
-model_limit_token = {"stabilityai/japanese-stablelm-base-alpha-7b": 2048}
+model_limit_token = {
+    "stabilityai/japanese-stablelm-base-alpha-7b": 2048,
+    "AIBunCho/japanese-novel-gpt-j-6b": 2048
+    }
 
 llm_model_list = [
-    "matsuo-lab/weblab-10b-instruction-sft",
+    "AIBunCho/japanese-novel-gpt-j-6b",
     "stabilityai/japanese-stablelm-base-alpha-7b",
+    "matsuo-lab/weblab-10b-instruction-sft",
     "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2",
     "line-corporation/japanese-large-lm-1.7b-instruction-sft",
     "cyberagent/open-calm-7b",
     ]
+
+path_of_models ={
+    "stabilityai/japanese-stablelm-base-alpha-7b": {
+        "tokenizer": "novelai/nerdstash-tokenizer-v1",
+        "model": "stabilityai/japanese-stablelm-base-alpha-7b"
+    },
+    "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2": {
+        "tokenizer": "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2",
+        "model": "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2"
+    },
+    "cyberagent/open-calm-7b": {
+        "tokenizer": "cyberagent/open-calm-7b",
+        "model": "cyberagent/open-calm-7b"
+    },
+    "line-corporation/japanese-large-lm-1.7b-instruction-sft": {
+        "tokenizer": "line-corporation/japanese-large-lm-1.7b-instruction-sft",
+        "model": "line-corporation/japanese-large-lm-1.7b-instruction-sft"
+    },
+    "matsuo-lab/weblab-10b-instruction-sft": {
+        "tokenizer": "matsuo-lab/weblab-10b-instruction-sft",
+        "model": "matsuo-lab/weblab-10b-instruction-sft"
+    },
+    "AIBunCho/japanese-novel-gpt-j-6b": {
+        "tokenizer": "AIBunCho/japanese-novel-gpt-j-6b",
+        "model": "AIBunCho/japanese-novel-gpt-j-6b"
+    },
+}
 
 def count_tokens(text, encoding: tiktoken.Encoding):
     return len(encoding.encode(text))
@@ -466,7 +497,7 @@ def model_generate_pad(model, inputs):
             top_k=talk_paramaters["top_k"],
             top_p=talk_paramaters["top_k"],
             typical_p=talk_paramaters["typical_p"],
-             pad_token_id=tokenizer.pad_token_id,
+            pad_token_id=tokenizer.pad_token_id,
        ) 
     return tokens
 def pipeline_generate(model, tokenizer, talk):
@@ -588,21 +619,25 @@ def model_load(model_txt):
     global messages_limit
     
     if model_txt == "stabilityai/japanese-stablelm-base-alpha-7b":
-        tokenizer = LlamaTokenizer.from_pretrained("novelai/nerdstash-tokenizer-v1", additional_special_tokens=['▁▁'],legacy=True)
-        model = AutoModelForCausalLM.from_pretrained(model_txt,trust_remote_code=True,)
-        messages_limit = model_limit_token["stabilityai/japanese-stablelm-base-alpha-7b"]
+        tokenizer = LlamaTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"], additional_special_tokens=['▁▁'],legacy=True)
+        model = AutoModelForCausalLM.from_pretrained(path_of_models[model_txt]["model"],trust_remote_code=True,cache_dir="models")
+        messages_limit = model_limit_token[model_txt]
     elif model_txt == "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2":
-        tokenizer = AutoTokenizer.from_pretrained(model_txt,use_fast=False,legacy=True)
-        model = AutoModelForCausalLM.from_pretrained(model_txt)
+        tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"],use_fast=False,legacy=True,cache_dir="models")
+        model = AutoModelForCausalLM.from_pretrained(path_of_models[model_txt]["model"])
     elif model_txt == "cyberagent/open-calm-7b":
-        tokenizer = AutoTokenizer.from_pretrained(model_txt)
-        model = AutoModelForCausalLM.from_pretrained(model_txt, device_map="auto",torch_dtype=torch.float16,)
+        tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"])
+        model = AutoModelForCausalLM.from_pretrained(path_of_models[model_txt]["model"], device_map="auto",torch_dtype=torch.float16,cache_dir="models")
     elif model_txt == "line-corporation/japanese-large-lm-1.7b-instruction-sft":
-        tokenizer = AutoTokenizer.from_pretrained(model_txt,use_fast=False)
-        model = AutoModelForCausalLM.from_pretrained(model_txt)
+        tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"],use_fast=False)
+        model = AutoModelForCausalLM.from_pretrained(path_of_models[model_txt]["model"],cache_dir="models")
     elif model_txt == "matsuo-lab/weblab-10b-instruction-sft":
-        tokenizer = AutoTokenizer.from_pretrained(model_txt)
-        model = AutoModelForCausalLM.from_pretrained(model_txt)
+        tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"])
+        model = AutoModelForCausalLM.from_pretrained(path_of_models[model_txt]["model"],cache_dir="models")
+    elif model_txt == "AIBunCho/japanese-novel-gpt-j-6b":
+        tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"])
+        model = GPTJForCausalLM.from_pretrained(path_of_models[model_txt]["model"],cache_dir="models")
+        messages_limit = model_limit_token[model_txt]
     if model_txt != "cyberagent/open-calm-7b":
         model.half()
         model.eval()
@@ -645,8 +680,8 @@ def genarate_talk(messages):
         talk = re.sub(talk_paramaters["assistant_role_name"], 'システム', talk)
         talk = talk.replace("\n","<NL>")
         token_ids = tokenizer.encode(talk, add_special_tokens=False, return_tensors="pt")
-        output_ids = model_generate_pad_bos_eos(model, token_ids)
-        output = tokenizer.decode(output_ids.tolist()[0][token_ids.size(1):])
+        tokens = model_generate_pad_bos_eos(model, token_ids)
+        output = tokenizer.decode(tokens.tolist()[0][token_ids.size(1):])
         output = output.replace("<NL>", "\n")
     elif model_txt == "cyberagent/open-calm-7b":
         inputs = tokenizer(talk, return_tensors="pt").to(model.device)
@@ -661,10 +696,14 @@ def genarate_talk(messages):
         talk = re.sub(talk_paramaters["user_role_name"], '### 指示', talk)
         talk = re.sub(talk_paramaters["assistant_role_name"], '### 応答', talk)
         token_ids = tokenizer.encode(talk, add_special_tokens=False, return_tensors="pt")
-        output_ids = model_generate_torch(model, token_ids)
-        output = tokenizer.decode(output_ids.tolist()[0])
+        tokens = model_generate_torch(model, token_ids)
+        output = tokenizer.decode(tokens.tolist()[0])
         output = re.sub('### 応答', talk_paramaters["assistant_role_name"], output)
         output = output.replace('<|endoftext|>', '')
+    elif model_txt == "AIBunCho/japanese-novel-gpt-j-6b":
+        input_ids = tokenizer.encode(talk, add_special_tokens=False, return_tensors="pt").cuda()
+        tokens = model_generate_pad_bos_eos(model,input_ids)
+        output = tokenizer.decode(tokens[0], skip_special_tokens=True)
 
     output = re.sub('(.|\n)*' + talk_paramaters["assistant_role_name"] + ': (.*?)', '\\2', output)
     sd_image = f"\n<img src='{get_sd_image()}'>" if sd_paramaters["sd_enable"] else ""
@@ -709,13 +748,14 @@ with gr.Blocks(title="ChatSwitch") as demo:
             restart_button = gr.Button(value=_("restart"))
             model_txt = gr.Dropdown(label=_("model"),value=model_init,container=True,choices=llm_model_list)
             system_txt = gr.Textbox(label=_("system prompt"),placeholder="system: user: assistant:",value=get_memory_variable("last_system_prompt"),container=True,lines=1)
-            prompt_memo = gr.Textbox(label=_("prompt memo"),placeholder=_("memo holder"),value=get_memory_variable("prompt_memo"),container=True,lines=1)
+            with gr.Accordion(label=_("prompt memo"),open=False):
+                prompt_memo = gr.TextArea(show_label=False,placeholder=_("memo holder"),value=get_memory_variable("prompt_memo"),container=True,lines=20)
             with gr.Tab(_("Chat history")):
                 list_history = gr.List(list_history_init,headers=[_("title"),"DEL","id"],datatype="str",col_count=(3, "fixed"),max_rows=10,interactive=False)
             with gr.Tab("AI"):
                 with gr.Row():
-                    ai_min_length = gr.Slider(label="min_length",value=min_length_init(),scale=1,minimum=0,maximum=ai_token_limit,step=1)
-                    ai_max_new_tokens = gr.Slider(label="max_new_tokens",value=max_new_tokens_init(),scale=1,minimum=1,maximum=ai_token_limit,step=1)
+                    ai_min_length = gr.Slider(label="min_length",value=min_length_init(),scale=1,minimum=0,maximum=65535,step=1)
+                    ai_max_new_tokens = gr.Slider(label="max_new_tokens",value=max_new_tokens_init(),scale=1,minimum=1,maximum=65535,step=1)
                     ai_temperature = gr.Slider(label="temperature",value=temperature_init(),scale=1,minimum=0.01,maximum=1.99,step=0.01)
                     ai_top_p = gr.Slider(label="top_p",value=top_p_init(),scale=1,minimum=0,maximum=1,step=0.01)
                     ai_top_k = gr.Slider(label="top_k",value=top_k_init(),scale=1,minimum=0,maximum=200,step=1)
