@@ -654,7 +654,7 @@ def genarate_talk(messages):
     model_txt = talk_paramaters['model_txt']
 
     talk = ""
-    if model_txt == "stabilityai/japanese-stablelm-base-alpha-7b":
+    if model_txt == "stabilityai/japanese-stablelm-base-alpha-7b" or model_txt == "AIBunCho/japanese-novel-gpt-j-6b":
         for message in messages:
             talk += f"{message['content']}"
     else:
@@ -701,9 +701,11 @@ def genarate_talk(messages):
         output = re.sub('### 応答', talk_paramaters["assistant_role_name"], output)
         output = output.replace('<|endoftext|>', '')
     elif model_txt == "AIBunCho/japanese-novel-gpt-j-6b":
+        talk += '<|endofuser|>'
         input_ids = tokenizer.encode(talk, add_special_tokens=False, return_tensors="pt").cuda()
         tokens = model_generate_pad_bos_eos(model,input_ids)
         output = tokenizer.decode(tokens[0], skip_special_tokens=True)
+        output = re.sub('(.|\n)*<|endofuser|>(.*?)', '\\2', output)
 
     output = re.sub('(.|\n)*' + talk_paramaters["assistant_role_name"] + ': (.*?)', '\\2', output)
     sd_image = f"\n<img src='{get_sd_image()}'>" if sd_paramaters["sd_enable"] else ""
