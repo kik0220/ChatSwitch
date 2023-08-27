@@ -58,7 +58,8 @@ This project allows you to switch between multiple LLMs and chat with them. All 
 
 - **Switching LLMs**: You can easily switch between different Language Models.
 - **Local Conversations**: All conversations are saved locally in `memory.pkl`, allowing you to resume previous chats.
-- **Japanese language support**:<details><summary>Screen shot</summary>
+- **Japanese language support**:
+<details><summary>Screen shot</summary>
 
 ![](SS5.png)
 </details>
