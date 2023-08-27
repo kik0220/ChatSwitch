@@ -41,12 +41,28 @@ For Linux and Mac users, you can start the Web UI by executing the following she
 
 This project allows you to switch between multiple LLMs and chat with them. All settings and conversations are stored locally in a file named `memory.pkl`.
 ![](SS1.png)
+<details><summary>LLMs</summary>
+
+![](SS2.png)
+</details>
+<details><summary>Stable Diffusion</summary>
+
+![](SS3.png)
+</details>
+<details><summary>option</summary>
+
+![](SS4.png)
+</details>
 
 ### Features
 
 - **Switching LLMs**: You can easily switch between different Language Models.
 - **Local Conversations**: All conversations are saved locally in `memory.pkl`, allowing you to resume previous chats.
+- **Japanese language support**:<details><summary>Screen shot</summary>
 
+![](SS5.png)
+</details>
+ 
 ### How to Use
 
 1. **Start the Web UI**: Run `webui.bat` (Windows) or `./webui.sh` (Linux/Mac) to launch the Web UI.

@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: ChatSwitch\n"
-"POT-Creation-Date: 2023-08-26 13:46+0900\n"
-"PO-Revision-Date: 2023-08-26 13:46+0900\n"
+"POT-Creation-Date: 2023-08-27 21:23+0900\n"
+"PO-Revision-Date: 2023-08-27 21:24+0900\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "Language: ja_JP\n"
@@ -14,39 +14,55 @@ msgstr ""
 "X-Poedit-SourceCharset: UTF-8\n"
 "X-Poedit-SearchPath-0: chatswitch.py\n"
 
-#: chatswitch.py:626
+#: chatswitch.py:681
 msgid "new line:Shift+Enter Send:Enter"
 msgstr "改行：Shift+Enter　送信：Enter"
 
-#: chatswitch.py:628
+#: chatswitch.py:683
+msgid "regenerate"
+msgstr "再生成"
+
+#: chatswitch.py:684
+msgid "undo"
+msgstr "アンドゥ"
+
+#: chatswitch.py:685
+msgid "send"
+msgstr "送信"
+
+#: chatswitch.py:687
 msgid "new chat"
 msgstr "新しい会話"
 
-#: chatswitch.py:629
+#: chatswitch.py:688
+msgid "restart"
+msgstr "再起動"
+
+#: chatswitch.py:689
 msgid "model"
 msgstr "モデル"
 
-#: chatswitch.py:630
+#: chatswitch.py:690
 msgid "system prompt"
 msgstr "システムプロンプト"
 
-#: chatswitch.py:631
+#: chatswitch.py:691
 msgid "prompt memo"
 msgstr "プロンプトメモ"
 
-#: chatswitch.py:631
+#: chatswitch.py:691
 msgid "memo holder"
 msgstr "メモ置き場"
 
-#: chatswitch.py:632
+#: chatswitch.py:692
 msgid "Chat history"
 msgstr "会話の履歴"
 
-#: chatswitch.py:633
+#: chatswitch.py:693
 msgid "title"
 msgstr "タイトル"
 
-#: chatswitch.py:647
+#: chatswitch.py:707
 msgid "enable"
 msgstr "有効"
 
