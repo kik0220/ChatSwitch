@@ -460,7 +460,7 @@ def no_repeat_ngram_size_init():
         return memory["last_ai_no_repeat_ngram_size"]
     return talk_paramaters['no_repeat_ngram_size']
 def min_length_init():
-    if "min_length" in memory:
+    if "last_ai_min_length" in memory:
         return memory["last_ai_min_length"]
     return talk_paramaters['min_length']
 def max_new_tokens_init():
