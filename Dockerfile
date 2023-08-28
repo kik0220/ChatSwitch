@@ -1,5 +1,5 @@
 # Ubuntuのベースイメージを使用
-FROM ubuntu:latest
+FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
 
 # 必要なソフトウェアをインストール
 RUN apt-get update && apt-get install -y python3 python3-pip
