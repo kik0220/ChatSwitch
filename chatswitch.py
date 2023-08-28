@@ -7,6 +7,7 @@ import gettext
 import gradio as gr
 from newspaper import Article
 from transformers import AutoModelForCausalLM, AutoTokenizer, LlamaTokenizer, pipeline, GPTJForCausalLM
+from auto_gptq import AutoGPTQForCausalLM
 import torch
 import tiktoken
 import re
@@ -36,16 +37,20 @@ _ = lang.gettext
 
 model_limit_token = {
     "stabilityai/japanese-stablelm-base-alpha-7b": 2048,
-    "AIBunCho/japanese-novel-gpt-j-6b": 2048
+    "AIBunCho/japanese-novel-gpt-j-6b": 2048,
+    "NovelAI/genji-jp": 2048,
     }
 
 llm_model_list = [
-    "AIBunCho/japanese-novel-gpt-j-6b",
     "stabilityai/japanese-stablelm-base-alpha-7b",
     "matsuo-lab/weblab-10b-instruction-sft",
     "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2",
     "line-corporation/japanese-large-lm-1.7b-instruction-sft",
     "cyberagent/open-calm-7b",
+    "AIBunCho/japanese-novel-gpt-j-6b",
+    "NovelAI/genji-jp",
+    "TheBloke/Llama-2-13B-chat-GPTQ",
+    "TheBloke/CodeLlama-7B-Instruct-GPTQ",
     ]
 
 path_of_models ={
@@ -72,6 +77,18 @@ path_of_models ={
     "AIBunCho/japanese-novel-gpt-j-6b": {
         "tokenizer": "AIBunCho/japanese-novel-gpt-j-6b",
         "model": "AIBunCho/japanese-novel-gpt-j-6b"
+    },
+    "NovelAI/genji-jp": {
+        "tokenizer": "EleutherAI/gpt-j-6B",
+        "model": "NovelAI/genji-jp"
+    },
+    "TheBloke/CodeLlama-7B-Instruct-GPTQ": {
+        "tokenizer": "TheBloke/CodeLlama-7B-Instruct-GPTQ",
+        "model": "TheBloke/CodeLlama-7B-Instruct-GPTQ"
+    },
+    "TheBloke/Llama-2-13B-chat-GPTQ": {
+        "tokenizer": "TheBloke/Llama-2-13B-chat-GPTQ",
+        "model": "TheBloke/Llama-2-13B-chat-GPTQ"
     },
 }
 
@@ -524,19 +541,72 @@ def model_generate_torch(model, token_ids):
     with torch.no_grad():
         output_ids = model.generate(
             token_ids.to(model.device),
-            max_new_tokens=talk_paramaters["max_new_tokens"],
             do_sample=True,
-            top_p=talk_paramaters["top_k"],
-            top_k=talk_paramaters["top_k"],
-            typical_p=talk_paramaters["typical_p"],
+            encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
             epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
             eta_cutoff=talk_paramaters["eta_cutoff"],
-            repetition_penalty=talk_paramaters["repetition_penalty"],
-            encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
-            no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
+            max_new_tokens=talk_paramaters["max_new_tokens"],
             min_length=talk_paramaters["min_length"],
+            no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
+            repetition_penalty=talk_paramaters["repetition_penalty"],
+            top_k=talk_paramaters["top_k"],
+            top_p=talk_paramaters["top_k"],
+            typical_p=talk_paramaters["typical_p"],
         )
-        return output_ids
+    return output_ids
+def model_generate_nai(model, token_ids):
+    output_ids = model.generate(
+        token_ids.long().cuda(), 
+        use_cache=True, 
+        do_sample=True, 
+        encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
+        epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
+        eta_cutoff=talk_paramaters["eta_cutoff"],
+        max_length=len(token_ids[0]) + talk_paramaters["max_new_tokens"], 
+        min_length=talk_paramaters["min_length"],
+        no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
+        repetition_penalty=talk_paramaters["repetition_penalty"],
+        top_k=talk_paramaters["top_k"],
+        top_p=talk_paramaters["top_k"],
+        typical_p=talk_paramaters["typical_p"],
+        pad_token_id=tokenizer.eos_token_id
+        )
+    return output_ids
+def model_generate_codellama(model, token_ids):
+    output_ids = model.generate(
+        inputs=token_ids,
+        do_sample=True,
+        encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
+        epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
+        eta_cutoff=talk_paramaters["eta_cutoff"],
+        max_new_tokens=talk_paramaters["max_new_tokens"],
+        min_length=talk_paramaters["min_length"],
+        no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
+        repetition_penalty=talk_paramaters["repetition_penalty"],
+        temperature=talk_paramaters["temperature"],
+        top_k=talk_paramaters["top_k"],
+        top_p=talk_paramaters["top_k"],
+        typical_p=talk_paramaters["typical_p"],
+        )
+    return output_ids
+def model_generate_llama2(model, token_ids):
+    output_ids = model.generate(
+        inputs=token_ids, 
+        do_sample=True,
+        encoder_repetition_penalty=talk_paramaters["encoder_repetition_penalty"],
+        epsilon_cutoff=talk_paramaters["epsilon_cutoff"],
+        eta_cutoff=talk_paramaters["eta_cutoff"],
+        max_new_tokens=talk_paramaters["max_new_tokens"],
+        min_length=talk_paramaters["min_length"],
+        no_repeat_ngram_size=talk_paramaters["no_repeat_ngram_size"],
+        repetition_penalty=talk_paramaters["repetition_penalty"],
+        temperature=talk_paramaters["temperature"],
+        top_k=talk_paramaters["top_k"],
+        top_p=talk_paramaters["top_k"],
+        typical_p=talk_paramaters["typical_p"],
+        )
+    return output_ids
+
 def set_parameters(ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint):
     global talk_paramaters
     global sd_paramaters
@@ -638,7 +708,17 @@ def model_load(model_txt):
         tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"],cache_dir="models")
         model = GPTJForCausalLM.from_pretrained(path_of_models[model_txt]["model"],cache_dir="models")
         messages_limit = model_limit_token[model_txt]
-    if model_txt != "cyberagent/open-calm-7b":
+    elif model_txt == "NovelAI/genji-jp":
+        tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"],cache_dir="models")
+        model = AutoModelForCausalLM.from_pretrained(path_of_models[model_txt]["model"],torch_dtype=torch.float16,low_cpu_mem_usage=True,cache_dir="models").eval().cuda()
+        messages_limit = model_limit_token[model_txt]
+    elif model_txt == "TheBloke/CodeLlama-7B-Instruct-GPTQ":
+        tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"],use_fast=True,cache_dir="models")
+        model = AutoGPTQForCausalLM.from_quantized(path_of_models[model_txt]["model"],use_safetensors=True, trust_remote_code=True, device="cuda:0", use_triton=False, quantize_config=None,cache_dir="models")
+    elif model_txt == "TheBloke/Llama-2-13B-chat-GPTQ":
+        tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"], use_fast=True,cache_dir="models")
+        model = AutoGPTQForCausalLM.from_quantized(path_of_models[model_txt]["model"],model_basename="model",use_safetensors=True,trust_remote_code=False,device="cuda:0",use_triton=False,quantize_config=None,cache_dir="models")
+    if model_txt != "cyberagent/open-calm-7b" and model_txt != "NovelAI/genji-jp":
         model.half()
         model.eval()
         if torch.cuda.is_available():
@@ -654,7 +734,7 @@ def genarate_talk(messages):
     model_txt = talk_paramaters['model_txt']
 
     talk = ""
-    if model_txt == "stabilityai/japanese-stablelm-base-alpha-7b" or model_txt == "AIBunCho/japanese-novel-gpt-j-6b":
+    if model_txt == "stabilityai/japanese-stablelm-base-alpha-7b" or model_txt == "AIBunCho/japanese-novel-gpt-j-6b" or model_txt == "TheBloke/CodeLlama-7B-Instruct-GPTQ":
         for message in messages:
             talk += f"{message['content']}"
     else:
@@ -706,6 +786,20 @@ def genarate_talk(messages):
         tokens = model_generate_pad_bos_eos(model,input_ids)
         output = tokenizer.decode(tokens[0], skip_special_tokens=True)
         output = re.sub('(.|\n)*<|endofuser|>(.*?)', '\\2', output)
+    elif model_txt == "NovelAI/genji-jp":
+        input_ids = tokenizer(talk, return_tensors="pt").input_ids
+        tokens = model_generate_nai(model, input_ids)
+        last_tokens = tokens[0]
+        output = tokenizer.decode(last_tokens).replace("�", "")
+    elif model_txt == "TheBloke/CodeLlama-7B-Instruct-GPTQ":
+        input_ids = tokenizer(talk, return_tensors="pt").input_ids.cuda()
+        tokens = model_generate_codellama(model, input_ids)
+        output = tokenizer.decode(tokens[0])
+        output = re.sub('\<\/?s\>','', output)
+    elif model_txt == "TheBloke/Llama-2-13B-chat-GPTQ":
+        input_ids = tokenizer(talk, return_tensors='pt').input_ids.cuda()
+        tokens = model_generate_llama2(model, input_ids)
+        output = tokenizer.decode(tokens[0])
 
     output = re.sub('(.|\n)*' + talk_paramaters["assistant_role_name"] + ': (.*?)', '\\2', output)
     sd_image = f"\n<img src='{get_sd_image()}'>" if sd_paramaters["sd_enable"] else ""
