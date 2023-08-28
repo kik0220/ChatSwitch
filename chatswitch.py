@@ -27,11 +27,14 @@ llm_model_list = [
     "stabilityai/japanese-stablelm-base-alpha-7b",
     "matsuo-lab/weblab-10b-instruction-sft",
     "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2",
+    "rinna/japanese-gpt-neox-3.6b-instruction-ppo",
     "line-corporation/japanese-large-lm-1.7b-instruction-sft",
     "cyberagent/open-calm-7b",
     "AIBunCho/japanese-novel-gpt-j-6b",
     "NovelAI/genji-jp",
+    "TheBloke/Llama-2-7B-GPTQ",
     "TheBloke/Llama-2-13B-chat-GPTQ",
+    "TheBloke/Llama-2-70B-GPTQ",
     "TheBloke/CodeLlama-7B-Instruct-GPTQ",
     ]
 
@@ -43,6 +46,10 @@ path_of_models ={
     "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2": {
         "tokenizer": "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2",
         "model": "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2"
+    },
+    "rinna/japanese-gpt-neox-3.6b-instruction-ppo": {
+        "tokenizer": "rinna/japanese-gpt-neox-3.6b-instruction-ppo",
+        "model": "rinna/japanese-gpt-neox-3.6b-instruction-ppo"
     },
     "cyberagent/open-calm-7b": {
         "tokenizer": "cyberagent/open-calm-7b",
@@ -68,9 +75,17 @@ path_of_models ={
         "tokenizer": "TheBloke/CodeLlama-7B-Instruct-GPTQ",
         "model": "TheBloke/CodeLlama-7B-Instruct-GPTQ"
     },
+    "TheBloke/Llama-2-7B-GPTQ": {
+        "tokenizer": "TheBloke/Llama-2-7B-GPTQ",
+        "model": "TheBloke/Llama-2-7B-GPTQ"
+    },
     "TheBloke/Llama-2-13B-chat-GPTQ": {
         "tokenizer": "TheBloke/Llama-2-13B-chat-GPTQ",
         "model": "TheBloke/Llama-2-13B-chat-GPTQ"
+    },
+    "TheBloke/Llama-2-70B-GPTQ": {
+        "tokenizer": "TheBloke/Llama-2-70B-GPTQ",
+        "model": "TheBloke/Llama-2-70B-GPTQ"
     },
 }
 
@@ -446,7 +461,7 @@ def no_repeat_ngram_size_init():
     return talk_paramaters['no_repeat_ngram_size']
 def min_length_init():
     if "min_length" in memory:
-        return memory["last_min_length"]
+        return memory["last_ai_min_length"]
     return talk_paramaters['min_length']
 def max_new_tokens_init():
     if "last_ai_max_new_tokens" in memory:
@@ -692,7 +707,7 @@ def model_load(model_txt):
         tokenizer = LlamaTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"], additional_special_tokens=['▁▁'],legacy=True,cache_dir="models")
         model = AutoModelForCausalLM.from_pretrained(path_of_models[model_txt]["model"],trust_remote_code=True,cache_dir="models")
         messages_limit = model_limit_token[model_txt]
-    elif model_txt == "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2":
+    elif model_txt == "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2" or model_txt == "rinna/japanese-gpt-neox-3.6b-instruction-ppo":
         tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"],use_fast=False,legacy=True,cache_dir="models")
         model = AutoModelForCausalLM.from_pretrained(path_of_models[model_txt]["model"],cache_dir="models")
     elif model_txt == "cyberagent/open-calm-7b":
@@ -715,7 +730,7 @@ def model_load(model_txt):
     elif model_txt == "TheBloke/CodeLlama-7B-Instruct-GPTQ":
         tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"],use_fast=True,cache_dir="models")
         model = AutoGPTQForCausalLM.from_quantized(path_of_models[model_txt]["model"],use_safetensors=True, trust_remote_code=True, device="cuda:0", use_triton=False, quantize_config=None,cache_dir="models")
-    elif model_txt == "TheBloke/Llama-2-13B-chat-GPTQ":
+    elif model_txt == "TheBloke/Llama-2-13B-chat-GPTQ" or model_txt == "TheBloke/Llama-2-7B-GPTQ" or model_txt == "TheBloke/Llama-2-70B-GPTQ":
         tokenizer = AutoTokenizer.from_pretrained(path_of_models[model_txt]["tokenizer"], use_fast=True,cache_dir="models")
         model = AutoGPTQForCausalLM.from_quantized(path_of_models[model_txt]["model"],model_basename="model",use_safetensors=True,trust_remote_code=False,device="cuda:0",use_triton=False,quantize_config=None,cache_dir="models")
     if model_txt != "cyberagent/open-calm-7b" and model_txt != "NovelAI/genji-jp":
@@ -755,7 +770,7 @@ def genarate_talk(messages):
         tokens =  model_generate(model, input_ids)
         output = tokenizer.decode(tokens[0], skip_special_tokens=True)
         output = output.replace(talk, '')
-    elif  model_txt == "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2":
+    elif  model_txt == "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2" or model_txt == "rinna/japanese-gpt-neox-3.6b-instruction-ppo":
         talk = re.sub(talk_paramaters["user_role_name"], 'ユーザー', talk)
         talk = re.sub(talk_paramaters["assistant_role_name"], 'システム', talk)
         talk = talk.replace("\n","<NL>")
@@ -781,11 +796,12 @@ def genarate_talk(messages):
         output = re.sub('### 応答', talk_paramaters["assistant_role_name"], output)
         output = output.replace('<|endoftext|>', '')
     elif model_txt == "AIBunCho/japanese-novel-gpt-j-6b":
-        talk += '<|endofuser|>'
+        talk = talk.replace('\n','')
+        talk += '#####\n'
         input_ids = tokenizer.encode(talk, add_special_tokens=False, return_tensors="pt").cuda()
         tokens = model_generate_pad_bos_eos(model,input_ids)
         output = tokenizer.decode(tokens[0], skip_special_tokens=True)
-        output = re.sub('(.|\n)*<|endofuser|>(.*?)', '\\2', output)
+        output = re.sub('.*#####(.*?)', '\\1', output)
     elif model_txt == "NovelAI/genji-jp":
         input_ids = tokenizer(talk, return_tensors="pt").input_ids
         tokens = model_generate_nai(model, input_ids)
@@ -796,7 +812,7 @@ def genarate_talk(messages):
         tokens = model_generate_codellama(model, input_ids)
         output = tokenizer.decode(tokens[0])
         output = re.sub('\<\/?s\>','', output)
-    elif model_txt == "TheBloke/Llama-2-13B-chat-GPTQ":
+    elif model_txt == "TheBloke/Llama-2-13B-chat-GPTQ" or model_txt == "TheBloke/Llama-2-7B-GPTQ" or model_txt == "TheBloke/Llama-2-70B-GPTQ":
         input_ids = tokenizer(talk, return_tensors='pt').input_ids.cuda()
         tokens = model_generate_llama2(model, input_ids)
         output = tokenizer.decode(tokens[0])
@@ -828,7 +844,7 @@ def restart() -> None:
 with gr.Blocks(title="ChatSwitch") as demo:
     with gr.Row():
         with gr.Column(scale=5, min_width=600):
-            chatbot = gr.Chatbot(load_last_conversation, elem_id="chatbot",height=800)
+            chatbot = gr.Chatbot(load_last_conversation, elem_id="chatbot",show_copy_button=True,height=800)
             user_prompt = gr.Textbox(placeholder=_("new line:Shift+Enter Send:Enter"),show_label=False,container=True,lines=1,autofocus=True)
             with gr.Row():
                 regenerate_button = gr.Button(value=_("regenerate"))
