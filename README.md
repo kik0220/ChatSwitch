@@ -25,6 +25,18 @@ Windowsの場合は webui.bat を、Linux/Macの場合は webui.sh を実行し�
 モデルを初めて選択したときや、モデルに更新があった際は、自動でダウンロードが行われ、modelsフォルダに保存されます。
 ![](SS5.png)
 
+## 対応モデル
+
+    "stabilityai/japanese-stablelm-base-alpha-7b",
+    "matsuo-lab/weblab-10b-instruction-sft",
+    "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2",
+    "line-corporation/japanese-large-lm-1.7b-instruction-sft",
+    "cyberagent/open-calm-7b",
+    "AIBunCho/japanese-novel-gpt-j-6b",
+    "NovelAI/genji-jp",
+    "TheBloke/Llama-2-13B-chat-GPTQ",
+    "TheBloke/CodeLlama-7B-Instruct-GPTQ",
+
 ## ライセンス
 
 このプロジェクトは MIT ライセンスに基づいてライセンスされています。 ライセンス条項に基づいて、自由に使用、変更、配布、販売することができます。 詳細については、プロジェクト リポジトリの [LICENSE](LICENSE) ファイルを参照してください。

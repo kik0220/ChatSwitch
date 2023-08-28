@@ -1,3 +1,3 @@
 #!/bin/bash
 source venv/bin/activate
-python3 chatswitch.py
+python3 webui.py

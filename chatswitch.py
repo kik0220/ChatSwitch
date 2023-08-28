@@ -1,4 +1,5 @@
 import os
+import pathlib
 import datetime
 import time
 import json
@@ -13,27 +14,8 @@ import tiktoken
 import re
 import requests
 import base64
-from pathlib import Path
 import locale
 import random
-
-# システムのロケール設定を取得
-default_locale = locale.getdefaultlocale()[0]
-if default_locale == 'ja_JP':
-    lang = gettext.translation('chatswitch',localedir='locale',languages=[default_locale])
-else:
-    lang = gettext.NullTranslations()
-
-# user_configを取得
-config_json = {}
-script_dir = os.getcwd()
-user_config_path = os.path.join(script_dir, "user_config.json")
-if os.path.exists(user_config_path):
-    with open(user_config_path, 'r', encoding='utf-8') as file:
-        config_json = json.load(file)
-
-lang.install()
-_ = lang.gettext
 
 model_limit_token = {
     "stabilityai/japanese-stablelm-base-alpha-7b": 2048,
@@ -91,6 +73,24 @@ path_of_models ={
         "model": "TheBloke/Llama-2-13B-chat-GPTQ"
     },
 }
+
+# システムのロケール設定を取得
+default_locale = locale.getdefaultlocale()[0]
+if default_locale == 'ja_JP':
+    lang = gettext.translation('chatswitch',localedir='locale',languages=[default_locale])
+else:
+    lang = gettext.NullTranslations()
+
+# user_configを取得
+config_json = {}
+script_dir = os.getcwd()
+user_config_path = os.path.join(script_dir, "user_config.json")
+if os.path.exists(user_config_path):
+    with open(user_config_path, 'r', encoding='utf-8') as file:
+        config_json = json.load(file)
+
+lang.install()
+_ = lang.gettext
 
 def count_tokens(text, encoding: tiktoken.Encoding):
     return len(encoding.encode(text))
@@ -395,7 +395,7 @@ def get_sd_image():
         if params['save_img']:
             img_data = base64.b64decode(img_str)
             save_path = f'{datetime.date.today().strftime("%Y_%m_%d")}/{int(time.time())}'
-            output_file = Path(f'outputs/{save_path}.png')
+            output_file = pathlib.Path(f'outputs/{save_path}.png')
             output_file.parent.mkdir(parents=True, exist_ok=True)
             with open(output_file.as_posix(), 'wb') as f:
                 f.write(img_data)
@@ -806,15 +806,6 @@ def genarate_talk(messages):
 
     return output + sd_image, seed
 
-def restart():
-    import sys
-    print("argv was",sys.argv)
-    print("sys.executable was", sys.executable)
-    print("restart now")
-
-    import os
-    os.execv(sys.executable, ['python'] + sys.argv)
-
 def undo_message(chatbot,user_prompt,list_history):
     if len(current_conversation) < 3:
         return chatbot,user_prompt,list_history
@@ -829,6 +820,10 @@ def undo_message(chatbot,user_prompt,list_history):
 
 def set_random_seed():
     return -1
+
+def restart() -> None:
+    modules_path = os.path.dirname(os.path.realpath(__file__))
+    pathlib.Path(modules_path + "/restart").touch()
 
 with gr.Blocks(title="ChatSwitch") as demo:
     with gr.Row():
@@ -877,7 +872,7 @@ with gr.Blocks(title="ChatSwitch") as demo:
     regenerate = regenerate_button.click(undo_message,[chatbot,user_prompt,list_history],[chatbot,user_prompt,list_history]).then(set_random_seed,outputs=ai_seed).then(add_text,[chatbot,user_prompt,system_txt], [chatbot,user_prompt,system_txt]).then(chat, inputs=[chatbot,model_txt,ai_temperature,ai_top_p,ai_top_k,ai_typical_p,ai_repetition_penalty,ai_encoder_repetition_penalty,ai_no_repeat_ngram_size,ai_min_length,ai_max_new_tokens,ai_seed,sd_enable,sd_host,sd_prompt,sd_negative,sd_chekpoint], outputs=[chatbot,user_prompt]).then(add_history, list_history, list_history)
     regenerate.then(lambda x: gr.update(value=x,interactive=True),[user_prompt],[user_prompt])
     regenerate.then(lambda: gr.update(interactive=True), None, [user_prompt])
-    restart_button.click(lambda: None, None, None, _js='() => {document.body.innerHTML=\'<h1 style="font-family:monospace;padding-top:20%;margin:0;height:100vh;color:lightgray;text-align:center;background:var(--body-background-fill)">Reloading...</h1>\'; setTimeout(function(){location.reload()},2500); return []}')
+    restart_button.click(restart).then(lambda: None, None, None, _js='() => {document.body.innerHTML=\'<h1 style="font-family:monospace;padding-top:20%;margin:0;height:100vh;color:lightgray;text-align:center;background:var(--body-background-fill)">Reloading...</h1>\'; setTimeout(function(){location.reload()},1000); return []}')
     new_button.click(new_chat).then(model_load,model_txt)
     model_txt.change(lambda x: memory.update({"last_model": x}),inputs=model_txt).then(save_memory).then(model_load,model_txt,model_txt)
     prompt_memo.change(lambda x: memory.update({"prompt_memo": x}),prompt_memo).then(save_memory)
@@ -898,7 +893,7 @@ with gr.Blocks(title="ChatSwitch") as demo:
     ai_encoder_repetition_penalty.change(lambda x: memory.update({"last_ai_encoder_repetition_penalty": x}),ai_encoder_repetition_penalty).then(save_memory)
     ai_no_repeat_ngram_size.change(lambda x: memory.update({"last_ai_no_repeat_ngram_size": x}),ai_no_repeat_ngram_size).then(save_memory)
     ai_seed.change(lambda x: memory.update({"last_ai_seed": x}),ai_seed).then(save_memory)
-    language.change(lambda x: memory.update({"last_language": x}),inputs=language).then(save_memory).then(language_change,language).then(restart)
+    language.change(lambda x: memory.update({"last_language": x}),inputs=language).then(save_memory).then(language_change,language).then(restart).then(lambda: None, None, None, _js='() => {document.body.innerHTML=\'<h1 style="font-family:monospace;padding-top:20%;margin:0;height:100vh;color:lightgray;text-align:center;background:var(--body-background-fill)">Reloading...</h1>\'; setTimeout(function(){location.reload()},1000); return []}')
 
 if __name__ == "__main__":
     if "server_port" in config_json:
