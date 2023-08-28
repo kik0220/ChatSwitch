@@ -9,3 +9,4 @@ sentencepiece
 einops
 xformers
 protobuf==3.20.*
+auto_gptq
