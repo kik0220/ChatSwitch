@@ -13,6 +13,24 @@
       }
     },
     {
+      "label": "Tag Docker Image",
+      "type": "shell",
+      "command": "docker tag chatswitch:latest kik0220/chatswitch:latest",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Grant gpu use",
+      "type": "shell",
+      "command": "docker run --gpus all -it kik0220/chatswitch:latest",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
       "label": "Renew Docker Image",
       "type": "shell",
       "command": "docker build -t kik0220/chatswitch:latest .",
@@ -33,7 +51,7 @@
     {
       "label": "Docker run :7860",
       "type": "shell",
-      "command": "docker run -d -p 7860:7860 kik0220/chatswitch:latest",
+      "command": "docker run --gpus all -d -p 7860:7860 kik0220/chatswitch:latest",
       "group": {
         "kind": "build",
         "isDefault": true
