@@ -1,2 +1,2 @@
 call venv\Scripts\activate
-python chatswitch.py
+python webui.py

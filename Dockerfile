@@ -13,9 +13,10 @@ RUN pip3 install torch torchvision --index-url https://download.pytorch.org/whl/
 RUN pip3 install -r requirements.txt
 
 # アプリケーションのコードをコピー
+COPY ./webui.py /app/
 COPY ./chatswitch.py /app/
 COPY ./user_config_docker.json /app/user_config.json
 COPY ./locale /app/locale
 
 # アプリケーションを実行
-CMD ["python3", "chatswitch.py"]
+CMD ["python3", "webui.py"]
