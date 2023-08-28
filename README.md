@@ -30,11 +30,14 @@ Windowsの場合は webui.bat を、Linux/Macの場合は webui.sh を実行し�
     "stabilityai/japanese-stablelm-base-alpha-7b",
     "matsuo-lab/weblab-10b-instruction-sft",
     "rinna/japanese-gpt-neox-3.6b-instruction-sft-v2",
+    "rinna/japanese-gpt-neox-3.6b-instruction-ppo",
     "line-corporation/japanese-large-lm-1.7b-instruction-sft",
     "cyberagent/open-calm-7b",
     "AIBunCho/japanese-novel-gpt-j-6b",
     "NovelAI/genji-jp",
+    "TheBloke/Llama-2-7B-GPTQ",
     "TheBloke/Llama-2-13B-chat-GPTQ",
+    "TheBloke/Llama-2-70B-GPTQ",
     "TheBloke/CodeLlama-7B-Instruct-GPTQ",
 
 ## ライセンス
